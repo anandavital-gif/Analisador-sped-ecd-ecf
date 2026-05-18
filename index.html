@@ -935,63 +935,80 @@ function diagECF(p, label) {
   const bt = p.byType;
   const bb = p.byBlock;
 
+  const cnpjVal = p.meta.cnpj || '(não encontrado)';
+  const dtIniVal = p.meta.dtIni || '(não encontrado)';
+  const dtFinVal = p.meta.dtFin || '(não encontrado)';
+  const nomeVal = p.meta.nome || '(não encontrado)';
+
   // ECF001 – 0000 ausente
   if (!bt['0000'] || bt['0000'].length === 0) {
-    diags.push({ level: 'error', code: 'ECF001', file: label, msg: 'Registro 0000 ausente', detail: 'Registro de abertura não encontrado. O arquivo não é uma ECF válida.' });
+    diags.push({ level: 'error', code: 'ECF001', file: label, msg: 'Registro 0000 ausente',
+      detail: '🔴 Crítico — bloqueia validação no PVA.\nRegistro de abertura (0000) não encontrado. O arquivo não é uma ECF válida ou está corrompido.\nAção corretiva: Regere o arquivo pelo ERP (Protheus: SIGAFIS → FISA145) e valide no PVA ECF antes de transmitir.\nReferência: Manual ECF v9 — Registro 0000, Regra 0000-01; IN RFB 2.004/2021 Art. 2º.' });
   }
 
   // ECF002 – CNPJ
   if (p.meta.cnpj && !validCNPJ(p.meta.cnpj.replace(/\D/g, ''))) {
-    diags.push({ level: 'error', code: 'ECF002', file: label, msg: `CNPJ inválido: ${p.meta.cnpj}`, detail: 'CNPJ do registro 0000 não válido. Corrija no sistema de origem.' });
+    diags.push({ level: 'error', code: 'ECF002', file: label, msg: `CNPJ inválido: ${cnpjVal}`,
+      detail: `🔴 Crítico — transmissão bloqueada pela RFB.\nValor encontrado no registro 0000: ${cnpjVal}. Os dígitos verificadores não são válidos.\nAção corretiva: Corrija o CNPJ no cadastro do contribuinte no ERP. Confirme o CNPJ no cartão do CNPJ disponível no site da RFB (www.receita.fazenda.gov.br). Regere o arquivo.\nReferência: Manual ECF — Registro 0000 campo CNPJ; IN RFB 2.004/2021 Art. 2º.` });
   }
 
   // ECF003 – Bloco M (Lalur)
   if (!bb['M'] || bb['M'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECF003', file: label, msg: 'Bloco M ausente (Lalur/Lacs)', detail: 'O Bloco M contém o Livro de Apuração do Lucro Real (Lalur) e do Lucro Ajustado (Lacs). Obrigatório para empresas Lucro Real.' });
+    diags.push({ level: 'warn', code: 'ECF003', file: label, msg: 'Bloco M ausente (Lalur/Lacs)',
+      detail: `🟡 Advertência — obrigatório para empresas Lucro Real.\nO Bloco M contém o LALUR (Livro de Apuração do Lucro Real — M300) e o LACS (Lucro Ajustado — M350). Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: Verifique o regime tributário da empresa. Se Lucro Real: execute a apuração do IRPJ no ERP (Protheus: SIGAFIS → Apuração IRPJ) e verifique as adições/exclusões (tabela ED8). Regere a ECF.\nReferência: Manual ECF — Bloco M; RIR/1999 Arts. 247–249; IN RFB 2.004/2021.` });
   }
 
   // ECF004 – Bloco N (IRPJ/CSLL)
   if (!bb['N'] || bb['N'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECF004', file: label, msg: 'Bloco N ausente (Cálculo IRPJ/CSLL)', detail: 'Bloco N ausente. Contém N620 (IRPJ) e N630 (CSLL). Verifique o regime tributário da empresa.' });
+    diags.push({ level: 'warn', code: 'ECF004', file: label, msg: 'Bloco N ausente (Cálculo IRPJ/CSLL)',
+      detail: `🟡 Advertência — cálculo tributário ausente.\nO Bloco N contém N620 (IRPJ) e N630 (CSLL). Empresa: ${nomeVal} | CNPJ: ${cnpjVal}.\nAção corretiva: Verifique o regime tributário (Lucro Real, Presumido ou Arbitrado). Execute o cálculo de IRPJ/CSLL no ERP e confirme se o período ${dtIniVal} a ${dtFinVal} está correto. Verifique se empresa é isenta/imune antes de concluir.\nReferência: Manual ECF — Bloco N, Registros N620/N630; RIR/1999 Art. 228; IN RFB 2.004/2021.` });
   }
 
   // ECF005 – M300 (Lucro líquido base do Lalur)
   if (bb['M'] && !bt['M300'] && !bt['M350']) {
-    diags.push({ level: 'warn', code: 'ECF005', file: label, msg: 'M300/M350 ausente — Lucro líquido do Lalur não encontrado', detail: 'M300 e M350 registram o lucro/prejuízo líquido antes das adições e exclusões. Fundamentais para consistência do IRPJ/CSLL.' });
+    diags.push({ level: 'warn', code: 'ECF005', file: label, msg: 'M300/M350 ausente — Lucro líquido do Lalur não encontrado',
+      detail: `🟡 Advertência — base do IRPJ/CSLL sem fundamento.\nM300 = Parte A do LALUR (Lucro Real) | M350 = Parte A do LACS (CSLL). Bloco M presente mas sem o registro de lucro líquido. Empresa: ${nomeVal}.\nAção corretiva: Verifique se a recuperação da ECD foi realizada no PVA ECF (menu Importar → ECD). Confirme que o fechamento contábil gerou saldos no I150 da ECD correspondente. Execute novamente a apuração do IRPJ no ERP.\nReferência: Manual ECF — Registros M300/M350, Regras M30-01 a M30-15; RIR/1999 Art. 247.` });
   }
 
   // ECF006 – N620
   if (bb['N'] && !bt['N620']) {
-    diags.push({ level: 'warn', code: 'ECF006', file: label, msg: 'N620 ausente — Cálculo de IRPJ não encontrado', detail: 'N620 é onde o IRPJ é calculado. Ausente pode indicar empresa isenta, imune, ou problema na geração.' });
+    diags.push({ level: 'warn', code: 'ECF006', file: label, msg: 'N620 ausente — Cálculo de IRPJ não encontrado',
+      detail: `🟡 Advertência — IRPJ sem demonstração de cálculo.\nBloco N presente mas sem N620. Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: Verifique se a empresa é obrigada ao recolhimento do IRPJ. Se sim, execute o cálculo de IRPJ no ERP (Protheus: tabela N620). Se isenta/imune, certifique-se de que o enquadramento está correto no cadastro do contribuinte.\nReferência: Manual ECF — Registro N620; RIR/1999 Art. 228; IN RFB 2.004/2021 Art. 4º.` });
   }
 
   // ECF007 – N630
   if (bb['N'] && !bt['N630']) {
-    diags.push({ level: 'warn', code: 'ECF007', file: label, msg: 'N630 ausente — Cálculo de CSLL não encontrado', detail: 'N630 registra o cálculo da CSLL. Verifique se a empresa é obrigada ao recolhimento.' });
+    diags.push({ level: 'warn', code: 'ECF007', file: label, msg: 'N630 ausente — Cálculo de CSLL não encontrado',
+      detail: `🟡 Advertência — CSLL sem demonstração de cálculo.\nBloco N presente mas sem N630. Empresa: ${nomeVal} | CNPJ: ${cnpjVal}.\nAção corretiva: Verifique a obrigatoriedade da CSLL para o regime tributário da empresa. Alíquota geral: 9% | Financeiras: 15%. Execute o cálculo no ERP e verifique os parâmetros de apuração.\nReferência: Manual ECF — Registro N630; Lei 7.689/1988; IN RFB 2.004/2021.` });
   }
 
   // ECF008 – Bloco J (DRE recuperada)
   if (!bb['J'] || bb['J'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECF008', file: label, msg: 'Bloco J ausente — DRE não recuperada da ECD', detail: 'O Bloco J da ECF deve ser recuperado da ECD. Ausente indica falha na recuperação ou empresa não obrigada à ECD.' });
+    diags.push({ level: 'warn', code: 'ECF008', file: label, msg: 'Bloco J ausente — DRE não recuperada da ECD',
+      detail: `🟡 Advertência — demonstrações contábeis não importadas.\nO Bloco J da ECF deve ser recuperado da ECD transmitida. Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: No PVA ECF, execute: menu Importar → ECD. Pré-requisito: ECD deve estar transmitida e com recibo de entrega. Confira CNPJ e período coincidentes. Verifique o relatório de importação por erros.\nReferência: Manual ECF — Bloco J; ADE Cofis 65/2013; IN RFB 2.004/2021.` });
   }
 
   // ECF009 – Bloco K (Balanço)
   if (!bb['K'] || bb['K'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECF009', file: label, msg: 'Bloco K ausente — Balanço não recuperado da ECD', detail: 'O Bloco K contém o Balanço Patrimonial recuperado da ECD. Verifique a recuperação da ECD na ECF.' });
+    diags.push({ level: 'warn', code: 'ECF009', file: label, msg: 'Bloco K ausente — Balanço não recuperado da ECD',
+      detail: `🟡 Advertência — Balanço Patrimonial ausente na ECF.\nO Bloco K contém o Balanço Patrimonial recuperado da ECD. Empresa: ${nomeVal}.\nAção corretiva: Execute a importação da ECD no PVA ECF (Importar → ECD). Certifique-se de que a ECD possui o Bloco J (J150 — Balanço). Sem o Bloco K a ECF pode ser rejeitada na transmissão.\nReferência: Manual ECF — Bloco K; ADE Cofis 65/2013; IN RFB 2.004/2021 Art. 6º.` });
   }
 
   // ECF010 – 9999 ausente
   if (!bt['9999'] || bt['9999'].length === 0) {
-    diags.push({ level: 'error', code: 'ECF010', file: label, msg: 'Registro 9999 ausente', detail: 'Arquivo sem encerramento. Pode estar truncado.' });
+    diags.push({ level: 'error', code: 'ECF010', file: label, msg: 'Registro 9999 ausente',
+      detail: `🔴 Crítico — arquivo incompleto, não aceito pelo PVA.\nO registro 9999 encerra o arquivo ECF. Empresa: ${nomeVal} | CNPJ: ${cnpjVal}.\nAção corretiva: Regere o arquivo completamente pelo ERP. Não edite o arquivo .txt manualmente. Verifique se o processo de exportação foi concluído sem erros.\nReferência: Manual ECF — Registro 9999; IN RFB 2.004/2021.` });
   }
 
   // ECF011 – X292 (participações) informativo
   if (!bt['X292'] && !bt['X300']) {
-    diags.push({ level: 'info', code: 'ECF011', file: label, msg: 'X292/X300 não encontrado — Participações societárias', detail: 'Se a empresa possui participações em outras empresas, o Bloco X deve ser preenchido. Verifique se aplicável.' });
+    diags.push({ level: 'info', code: 'ECF011', file: label, msg: 'X292/X300 não encontrado — Participações societárias',
+      detail: `🟢 Informativo — verificar aplicabilidade.\nX292 = Participações em coligadas/controladas | X300 = Sócios/acionistas da declarante. Empresa: ${nomeVal}.\nAção corretiva: Verifique se a empresa possui participações em outras empresas ou sócios PJ. Se sim, o Bloco X deve ser preenchido com CNPJ das participadas, percentual e método de avaliação (custo ou equivalência patrimonial).\nReferência: Manual ECF — Bloco X, Registros X292/X300; CPC 18/35; IN RFB 2.004/2021.` });
   }
 
   if (diags.length === 0) {
-    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado', detail: 'A estrutura básica da ECF está conforme. Recomenda-se validação completa pelo PVA da RFB.' });
+    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado',
+      detail: `🟢 Informativo — estrutura básica conforme.\nEmpresa: ${nomeVal} | CNPJ: ${cnpjVal} | Período: ${dtIniVal} a ${dtFinVal}.\nA estrutura de registros obrigatórios da ECF está presente. Recomenda-se validação completa pelo PVA da RFB antes da transmissão para detecção de inconsistências de valores.` });
   }
 
   return diags;
