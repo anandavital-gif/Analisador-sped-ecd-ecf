@@ -320,6 +320,36 @@ body[data-theme=dark] .dash-history-table tbody tr:hover td{background:#1a2840}
 /* ── Toast notification ─────────────────────────────────────────── */
 #toastMsg{position:fixed;bottom:24px;right:24px;z-index:10000;background:#187a4b;color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;padding:10px 20px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;transform:translateY(12px)}
 #toastMsg.show{opacity:1;pointer-events:auto;transform:translateY(0)}
+
+/* ── Relatórios ────────────────────────────────────────────────────── */
+.report-section{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.5rem;box-shadow:var(--shadow-soft);margin-bottom:1.5rem}
+.report-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem}
+.report-header h3{font-size:14px;font-weight:700;color:var(--navy);margin:0}
+.report-header-right{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.report-period{font-size:11px;color:var(--text-3);font-family:monospace}
+.report-btn-pdf{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;background:#11345b;color:#fff;border:none;border-radius:7px;cursor:pointer;transition:background .15s}
+.report-btn-pdf:hover{background:#1c4879}
+.report-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.report-table thead th{background:#11345b;color:#fff;padding:7px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;position:sticky;top:0;z-index:1}
+.report-table thead th.td-num{text-align:right}
+.report-table tbody td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text-2);vertical-align:middle}
+.report-table tbody tr:nth-child(even) td{background:#f7faff}
+body[data-theme=dark] .report-table tbody tr:nth-child(even) td{background:#131d2d}
+.report-table tbody tr:hover td{background:var(--navy-light)}
+.report-table .subtotal td{font-weight:600;background:#e8f0fb;color:var(--navy)}
+body[data-theme=dark] .report-table .subtotal td{background:#1a2840}
+.report-table .total-row td{font-weight:700;background:#11345b;color:#fff;font-size:12px}
+.balanco-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+@media(max-width:760px){.balanco-grid{grid-template-columns:1fr}}
+.balanco-col{}
+.balanco-col h4{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:2px solid var(--navy)}
+.balanco-group{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--navy-mid);padding:5px 10px;background:var(--navy-light);border-radius:5px;margin:8px 0 2px}
+body[data-theme=dark] .balanco-group{background:#1a2840}
+.balanco-unequal{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--red-light);border:1px solid var(--red);border-radius:7px;font-size:12px;font-weight:600;color:var(--red);margin-bottom:1rem}
+@media print{
+  .report-section+.report-section{page-break-before:always}
+  .report-btn-pdf{display:none!important}
+}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <!-- Firebase -->
@@ -453,6 +483,7 @@ body[data-theme=dark] .dash-history-table tbody tr:hover td{background:#1a2840}
     <button class="tab-btn" onclick="switchTab('diagnostico')">🔴 Diagnóstico</button>
     <button class="tab-btn" onclick="switchTab('comparativo')">📈 Comparativo</button>
     <button class="tab-btn" onclick="switchTab('cruzamento')">🔀 Cruzamento ECD×ECF</button>
+    <button class="tab-btn" onclick="switchTab('relatorios')">📄 Relatórios</button>
     <button class="tab-btn" onclick="switchTab('consultor')">💬 Consultor IA</button>
   </div>
 
@@ -503,6 +534,50 @@ body[data-theme=dark] .dash-history-table tbody tr:hover td{background:#1a2840}
         <span class="empty-state-icon">🔀</span>
         <h3>Cruzamento ECD × ECF</h3>
         <p>Carregue a ECD e a ECF do mesmo período para iniciar o cruzamento.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Relatórios -->
+  <div class="tab-pane" id="tab-relatorios" data-title="Relatórios Contábeis">
+    <div class="section-head" style="margin-bottom:1.25rem">
+      <h3>Relatórios Contábeis</h3>
+      <p>Balancete de Verificação e Balanço Patrimonial gerados a partir dos dados da ECD carregada.</p>
+    </div>
+
+    <!-- Balancete de Verificação -->
+    <div class="report-section">
+      <div class="report-header">
+        <h3>📊 Balancete de Verificação</h3>
+        <div class="report-header-right">
+          <span class="report-period" id="balancete-period"></span>
+          <button class="report-btn-pdf" onclick="printReport('balancete-content','Balancete de Verificação')">📥 Gerar PDF</button>
+        </div>
+      </div>
+      <div class="table-wrap" id="balancete-content">
+        <div class="empty-state">
+          <span class="empty-state-icon">📂</span>
+          <h3>Nenhum arquivo ECD carregado</h3>
+          <p>Carregue pelo menos um arquivo ECD e execute a análise para gerar o Balancete.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Balanço Patrimonial -->
+    <div class="report-section">
+      <div class="report-header">
+        <h3>🏦 Balanço Patrimonial</h3>
+        <div class="report-header-right">
+          <span class="report-period" id="balanco-period"></span>
+          <button class="report-btn-pdf" onclick="printReport('balanco-content','Balanço Patrimonial')">📥 Gerar PDF</button>
+        </div>
+      </div>
+      <div id="balanco-content">
+        <div class="empty-state">
+          <span class="empty-state-icon">🏦</span>
+          <h3>Nenhum arquivo ECD carregado</h3>
+          <p>Carregue pelo menos um arquivo ECD e execute a análise para gerar o Balanço Patrimonial.</p>
+        </div>
       </div>
     </div>
   </div>
