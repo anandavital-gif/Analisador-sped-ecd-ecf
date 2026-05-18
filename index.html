@@ -1270,7 +1270,7 @@ function buildWebSearchCard(query) {
   ).join('');
 
   return `<div class="web-search-card">
-    <h5>🌐 Resultados de busca para: "${escH(query.replace(/\[ERROS PVA\][\s\S]*/,'').trim().substring(0, 60))}"</h5>
+    <h5>🌐 Busca para: "${escH(query.substring(0, 80))}"</h5>
     <div class="web-links">${linksHtml}</div>
   </div>`;
 }
@@ -1323,6 +1323,21 @@ function chatKeyDown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 }
 
+function extractPVASearchQuery(pvaText, userMsg) {
+  if (userMsg) return userMsg;
+  // Extract register codes (I155, I250, J150 etc.)
+  const regs = [...new Set([...pvaText.matchAll(/\b([IJTMXCN]\d{3})\b/gi)].map(m => m[1].toUpperCase()))].slice(0, 4);
+  // Extract first meaningful error sentence (up to 80 chars)
+  const errorLine = pvaText.split(/\n|\./)
+    .map(l => l.trim())
+    .find(l => l.length > 20 && /\b(erro|diverge|diferente|ausente|inválido|não foram|soma)\b/i.test(l));
+  const desc = errorLine ? errorLine.substring(0, 80) : '';
+  const parts = [];
+  if (regs.length) parts.push(regs.join(' '));
+  if (desc) parts.push(desc);
+  return parts.join(' ') || 'SPED ECD ECF erro PVA';
+}
+
 function sendChat() {
   const input = document.getElementById('chatInput');
   const msg = input.value.trim();
@@ -1335,7 +1350,8 @@ function sendChat() {
   setTimeout(() => {
     const resp = generateResponse(queryMsg);
     document.getElementById('chatTyping').style.display = 'none';
-    const fullResp = webSearchEnabled ? resp + buildWebSearchCard(displayMsg) : resp;
+    const searchQuery = pvaContent ? extractPVASearchQuery(pvaContent, msg) : displayMsg;
+    const fullResp = webSearchEnabled ? resp + buildWebSearchCard(searchQuery) : resp;
     appendMsg(fullResp, 'bot');
   }, 600 + Math.random() * 400);
 }
