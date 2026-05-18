@@ -240,7 +240,28 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   table{page-break-inside:avoid}
   h3,h4{page-break-after:avoid}
   .print-timestamp{display:block!important}
+  .archive-section{display:none!important}
 }
+
+/* ── Archive section ───────────────────────────────────────────── */
+.archive-section{margin-bottom:1rem;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.archive-header{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy);background:var(--navy-light);user-select:none}
+.archive-header:hover{background:#d6e4f7}
+.archive-body{padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.archive-company{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.archive-company-name{font-size:12px;font-weight:700;color:var(--navy);padding:7px 12px;background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.archive-cnpj{font-size:11px;font-weight:400;color:var(--text-3);font-family:monospace}
+.archive-files{display:flex;flex-direction:column;gap:0}
+.archive-file-row{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:11.5px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.archive-file-row:last-child{border-bottom:none}
+.archive-slot{font-weight:600;color:var(--navy);min-width:110px}
+.archive-period{color:var(--text-3);font-size:11px;min-width:130px;font-family:monospace}
+.archive-fname{flex:1;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.archive-saved{font-size:10.5px;color:var(--text-3);white-space:nowrap}
+.archive-btn-load{padding:3px 10px;font-size:11px;font-weight:600;font-family:'Inter',sans-serif;background:var(--navy-mid);color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap}
+.archive-btn-load:hover{background:#234e87}
+.archive-btn-del{padding:3px 7px;font-size:11px;background:none;border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--text-3)}
+.archive-btn-del:hover{background:var(--red-light);color:var(--red);border-color:var(--red)}
 .print-timestamp{display:none;font-size:9pt;color:#666;margin-top:4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -322,6 +343,15 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Tabs -->
+  <!-- Archive section -->
+  <div class="archive-section" id="archiveSection" style="display:none">
+    <div class="archive-header" onclick="toggleArchive()">
+      <span id="archiveHeaderLabel">📂 Arquivos Salvos</span>
+      <span id="archiveChevron">▾</span>
+    </div>
+    <div class="archive-body" id="archiveBody"></div>
+  </div>
+
   <div class="tabs-nav" id="tabsNav" style="display:none">
     <button class="tab-btn active" onclick="switchTab('resumo')">📊 Resumo</button>
     <button class="tab-btn" onclick="switchTab('diagnostico')">🔴 Diagnóstico</button>
@@ -623,6 +653,7 @@ async function runAnalysis() {
         const text = await readFileText(files[key]);
         parsed[key] = parseSPED(text);
         parsed[key]._key = key;
+        if (db) saveToArchive(key, text, files[key].name, parsed[key].meta);
       }
       if (!files[key]) parsed[key] = null;
     }
@@ -1673,8 +1704,108 @@ function validCNPJ(digits) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Archive (IndexedDB) ──────────────────────────────────────────────────────
+let db = null;
+const SLOT_LABELS = { 'ecd-ant': '📘 ECD Anterior', 'ecd-atu': '📗 ECD Atual', 'ecf-ant': '📙 ECF Anterior', 'ecf-atu': '📒 ECF Atual' };
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('SpedAnalisador', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('arquivos', { keyPath: 'id' });
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = reject;
+  });
+}
+
+function saveToArchive(slot, content, fileName, meta) {
+  if (!db || !meta || !meta.cnpj) return;
+  const cnpjClean = meta.cnpj.replace(/\D/g, '');
+  if (!cnpjClean) return;
+  const id = `${cnpjClean}-${slot}`;
+  const record = { id, cnpj: meta.cnpj, nome: meta.nome || '', slot, fileName, content, dtIni: meta.dtIni || '', dtFin: meta.dtFin || '', savedAt: new Date().toISOString() };
+  const tx = db.transaction('arquivos', 'readwrite');
+  tx.objectStore('arquivos').put(record);
+  tx.oncomplete = () => renderArchive();
+}
+
+function getAllArchived() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('arquivos', 'readonly');
+    const req = tx.objectStore('arquivos').getAll();
+    req.onsuccess = e => resolve(e.target.result || []);
+    req.onerror = reject;
+  });
+}
+
+async function renderArchive() {
+  const records = await getAllArchived();
+  const section = document.getElementById('archiveSection');
+  const body = document.getElementById('archiveBody');
+  if (!records.length) { section.style.display = 'none'; return; }
+
+  // Group by CNPJ
+  const byCompany = {};
+  records.forEach(r => {
+    const k = r.cnpj || r.nome || '?';
+    if (!byCompany[k]) byCompany[k] = { cnpj: r.cnpj, nome: r.nome, files: [] };
+    byCompany[k].files.push(r);
+  });
+
+  let html = '';
+  for (const company of Object.values(byCompany)) {
+    const nome = escH(company.nome || 'Empresa sem nome');
+    const cnpj = escH(company.cnpj || '');
+    html += `<div class="archive-company">
+      <div class="archive-company-name">${nome} <span class="archive-cnpj">${cnpj}</span></div>
+      <div class="archive-files">`;
+    company.files.forEach(r => {
+      const saved = new Date(r.savedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      html += `<div class="archive-file-row">
+        <span class="archive-slot">${SLOT_LABELS[r.slot] || r.slot}</span>
+        <span class="archive-period">${r.dtIni} – ${r.dtFin}</span>
+        <span class="archive-fname" title="${escH(r.fileName)}">${escH(r.fileName)}</span>
+        <span class="archive-saved">Salvo ${saved}</span>
+        <button class="archive-btn-load" onclick="loadFromArchive('${r.id}','${r.slot}')">⬆ Carregar</button>
+        <button class="archive-btn-del" onclick="deleteArchived('${r.id}')" title="Remover do arquivo">✕</button>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById('archiveHeaderLabel').textContent = `📂 Arquivos Salvos (${records.length})`;
+  section.style.display = 'block';
+}
+
+function toggleArchive() {
+  const body = document.getElementById('archiveBody');
+  const chevron = document.getElementById('archiveChevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chevron.textContent = open ? '▸' : '▾';
+}
+
+function loadFromArchive(id, slot) {
+  const tx = db.transaction('arquivos', 'readonly');
+  const req = tx.objectStore('arquivos').get(id);
+  req.onsuccess = e => {
+    const r = e.target.result;
+    if (!r) return;
+    const blob = new Blob([r.content], { type: 'text/plain' });
+    const file = new File([blob], r.fileName, { type: 'text/plain' });
+    loadFile(file, slot);
+  };
+}
+
+async function deleteArchived(id) {
+  const tx = db.transaction('arquivos', 'readwrite');
+  tx.objectStore('arquivos').delete(id);
+  tx.oncomplete = () => renderArchive();
+}
+
 initTheme();
 updateStatus();
+initDB().then(() => renderArchive()).catch(() => {});
 
 function exportPDF() {
   const now = new Date();
