@@ -206,6 +206,31 @@ body[data-theme=dark] tbody tr:hover td{background:#1a2840}
 .text-muted{color:var(--text-3)}
 .fw-600{font-weight:600}
 hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+
+/* PDF export button */
+.btn-pdf{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;background:#fff;color:var(--navy);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;cursor:pointer;transition:background .15s,color .15s}
+.btn-pdf:hover{background:var(--navy-light);color:var(--navy-mid);border-color:var(--navy-mid)}
+
+/* ── Print / PDF styles ─────────────────────────────────────────── */
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff!important;color:#152033!important;font-size:11pt}
+  .header{background:#11345b!important;color:#fff!important;padding:1rem 1.5rem;page-break-after:avoid}
+  .header-right,.theme-toggle,.back-link,.btn-pdf{display:none!important}
+  .upload-zone,.tab-nav,.chat-input-row,.pva-attach-bar,.chat-typing,.tab-btn{display:none!important}
+  .tab-pane{display:block!important;page-break-before:always}
+  .tab-pane:first-of-type{page-break-before:avoid}
+  .tab-pane::before{content:attr(data-title);display:block;font-size:13pt;font-weight:700;color:#11345b;border-bottom:2px solid #11345b;padding-bottom:4px;margin-bottom:12px}
+  .container{max-width:100%;padding:0 1rem}
+  .card,.diag-card{box-shadow:none!important;border:1px solid #dce4f0!important;page-break-inside:avoid}
+  .chat-messages{height:auto!important;overflow:visible!important}
+  .chat-msg{max-width:100%!important}
+  .footer{page-break-before:avoid;font-size:9pt;color:#666}
+  table{page-break-inside:avoid}
+  h3,h4{page-break-after:avoid}
+  .print-timestamp{display:block!important}
+}
+.print-timestamp{display:none;font-size:9pt;color:#666;margin-top:4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -218,6 +243,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
     <div class="header-meta">Upload · Validação · Comparativo · Cruzamento · Consultor IA</div>
   </div>
   <div class="header-right">
+    <button class="btn-pdf" onclick="exportPDF()" type="button">⬇ Gerar PDF</button>
     <a href="./index.html" class="back-link">← Painel de Fornecedores</a>
     <button class="theme-toggle" onclick="toggleTheme()" type="button">
       <span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8V5.2M12 18.8V21.2M21.2 12H18.8M5.2 12H2.8M18.5 5.5L16.8 7.2M7.2 16.8L5.5 18.5M18.5 18.5L16.8 16.8M7.2 7.2L5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
@@ -295,7 +321,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Resumo -->
-  <div class="tab-pane active" id="tab-resumo">
+  <div class="tab-pane active" id="tab-resumo" data-title="Resumo dos Arquivos">
     <div id="resumo-content">
       <div class="empty-state">
         <span class="empty-state-icon">📂</span>
@@ -306,7 +332,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Diagnóstico -->
-  <div class="tab-pane" id="tab-diagnostico">
+  <div class="tab-pane" id="tab-diagnostico" data-title="Diagnóstico">
     <div id="diag-content">
       <div class="empty-state">
         <span class="empty-state-icon">🔍</span>
@@ -317,7 +343,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Comparativo -->
-  <div class="tab-pane" id="tab-comparativo">
+  <div class="tab-pane" id="tab-comparativo" data-title="Comparativo de Períodos">
     <div id="comp-content">
       <div class="empty-state">
         <span class="empty-state-icon">📈</span>
@@ -328,7 +354,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Cruzamento -->
-  <div class="tab-pane" id="tab-cruzamento">
+  <div class="tab-pane" id="tab-cruzamento" data-title="Cruzamento ECD × ECF">
     <div id="crz-content">
       <div class="empty-state">
         <span class="empty-state-icon">🔀</span>
@@ -339,7 +365,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
   </div>
 
   <!-- Consultor IA -->
-  <div class="tab-pane" id="tab-consultor">
+  <div class="tab-pane" id="tab-consultor" data-title="Consultor IA — Histórico">
     <div class="section-head">
       <h3>Consultor Especialista ECD/ECF</h3>
       <p>Descreva seu erro, advertência ou dúvida. O consultor analisa o contexto dos arquivos carregados.</p>
@@ -376,6 +402,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 
   <footer class="footer">
     Grupo Paraná · Analisador SPED ECD/ECF &nbsp;|&nbsp; Processamento 100% local — nenhum arquivo é enviado a servidores externos
+    <span class="print-timestamp" id="printTimestamp"></span>
   </footer>
 </main>
 
@@ -1561,6 +1588,20 @@ function validCNPJ(digits) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initTheme();
 updateStatus();
+
+function exportPDF() {
+  const now = new Date();
+  const ts = now.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  document.getElementById('printTimestamp').textContent = ' · Gerado em ' + ts;
+  // Temporarily show all tabs so they print
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'block');
+  window.print();
+  // Restore tab visibility after print dialog closes
+  setTimeout(() => {
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = '');
+    // Re-apply active state via CSS class (display handled by .tab-pane / .tab-pane.active)
+  }, 500);
+}
 </script>
 </body>
 </html>
