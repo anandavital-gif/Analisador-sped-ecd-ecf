@@ -207,6 +207,7 @@ body[data-theme=dark] tbody tr:hover td{background:#1a2840}
 .fw-600{font-weight:600}
 hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -359,7 +360,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
       <div class="chat-input-row">
         <div class="chat-input-wrap">
           <div class="pva-attach-bar">
-            <button class="pva-attach-btn" onclick="document.getElementById('pvaFileInput').click()">📎 Anexar erros do PVA</button>
+            <button class="pva-attach-btn" onclick="document.getElementById('pvaFileInput').click()">📎 Anexar relatório do PVA <span style="opacity:.65;font-weight:400">(PDF ou TXT)</span></button>
             <span class="pva-badge" id="pvaBadge">
               <span id="pvaBadgeName"></span>
               <button class="pva-badge-remove" onclick="removePVA()" title="Remover">✕</button>
@@ -367,7 +368,7 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
           </div>
           <textarea class="chat-input" id="chatInput" rows="2" placeholder="Digite sua dúvida ou descreva o problema..." onkeydown="chatKeyDown(event)"></textarea>
         </div>
-        <input type="file" id="pvaFileInput" accept=".txt,.log,.xml" style="display:none" onchange="onPVAFileSelect(event)">
+        <input type="file" id="pvaFileInput" accept=".txt,.log,.xml,.pdf" style="display:none" onchange="onPVAFileSelect(event)">
         <button class="chat-send" onclick="sendChat()">Enviar ▶</button>
       </div>
     </div>
@@ -1177,19 +1178,42 @@ function renderCruzamento() {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 let pvaContent = null;
 
-function onPVAFileSelect(event) {
+async function onPVAFileSelect(event) {
   const file = event.target.files[0];
   if (!file) return;
+  event.target.value = '';
+
+  if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+    try {
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js não carregado');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      pvaContent = text;
+      const lines = text.split('\n').filter(l => l.trim()).length;
+      document.getElementById('pvaBadgeName').textContent = '📄 ' + file.name;
+      document.getElementById('pvaBadge').style.display = 'inline-flex';
+      appendMsg(`<strong>PDF do PVA anexado:</strong> <code>${escH(file.name)}</code><br><small>${pdf.numPages} página(s) · ${lines} linhas extraídas. Envie sua pergunta para analisar os erros.</small>`, 'bot');
+    } catch (err) {
+      appendMsg(`<strong>Erro ao ler o PDF:</strong> ${escH(err.message)}<br>Tente exportar o relatório do PVA como <code>.txt</code> e anexe novamente.`, 'bot');
+    }
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = e => {
     pvaContent = e.target.result;
     document.getElementById('pvaBadgeName').textContent = '📄 ' + file.name;
-    const badge = document.getElementById('pvaBadge');
-    badge.style.display = 'inline-flex';
+    document.getElementById('pvaBadge').style.display = 'inline-flex';
     appendMsg(`<strong>Arquivo PVA anexado:</strong> <code>${escH(file.name)}</code><br><small>${pvaContent.split('\n').length} linhas carregadas. Envie sua pergunta para analisar os erros.</small>`, 'bot');
   };
   reader.readAsText(file, 'UTF-8');
-  event.target.value = '';
 }
 
 function removePVA() {
@@ -1230,13 +1254,16 @@ function appendMsg(html, who) {
 function parsePVAErrors(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const errors = [], warnings = [], infos = [];
+  // Detect registro mentions (I155, I250, J150 etc.)
+  const regPattern = /\b([IJTMXCNPK]\d{3})\b/gi;
   lines.forEach(l => {
-    const ll = l.toLowerCase();
-    if (/\b(erro|error|crítico|critical|ecd-\d|ecf-\d)/i.test(l)) errors.push(l);
-    else if (/\b(advertência|advertencia|warn|atenção|atencao)/i.test(l)) warnings.push(l);
-    else infos.push(l);
+    if (/\b(erro|error|crítico|inválido|diverge|diferente|ausente|não foram|não informado)/i.test(l)) errors.push(l);
+    else if (/\b(advertência|advertencia|warn|atenção|atencao|recomend)/i.test(l)) warnings.push(l);
+    else if (regPattern.test(l)) infos.push(l);
   });
-  return { errors, warnings, infos, total: lines.length };
+  // Extract unique registro codes mentioned
+  const regs = [...new Set([...text.matchAll(/\b([IJTMXCN]\d{3})\b/gi)].map(m => m[1].toUpperCase()))];
+  return { errors, warnings, infos, regs, total: lines.length };
 }
 
 function generateResponse(query) {
@@ -1249,20 +1276,34 @@ function generateResponse(query) {
     const userQuestion = query.split('[ERROS PVA]')[0].trim();
     const parsed = parsePVAErrors(pvaText);
     const errHtml = parsed.errors.length
-      ? `<h4>🔴 Erros (${parsed.errors.length})</h4><ul>${parsed.errors.slice(0, 10).map(e => `<li><code>${escH(e)}</code></li>`).join('')}${parsed.errors.length > 10 ? `<li><em>… e mais ${parsed.errors.length - 10} erros</em></li>` : ''}</ul>` : '';
+      ? `<h4>🔴 Erros identificados (${parsed.errors.length})</h4><ul>${parsed.errors.slice(0, 12).map(e => `<li>${escH(e.substring(0, 180))}</li>`).join('')}${parsed.errors.length > 12 ? `<li><em>… e mais ${parsed.errors.length - 12}</em></li>` : ''}</ul>` : '';
     const warnHtml = parsed.warnings.length
-      ? `<h4>🟡 Advertências (${parsed.warnings.length})</h4><ul>${parsed.warnings.slice(0, 8).map(w => `<li><code>${escH(w)}</code></li>`).join('')}${parsed.warnings.length > 8 ? `<li><em>… e mais ${parsed.warnings.length - 8}</em></li>` : ''}</ul>` : '';
+      ? `<h4>🟡 Advertências (${parsed.warnings.length})</h4><ul>${parsed.warnings.slice(0, 8).map(w => `<li>${escH(w.substring(0, 180))}</li>`).join('')}${parsed.warnings.length > 8 ? `<li><em>… e mais ${parsed.warnings.length - 8}</em></li>` : ''}</ul>` : '';
+    const regsHtml = parsed.regs && parsed.regs.length
+      ? `<strong>Registros afetados:</strong> ${parsed.regs.map(r => `<code>${r}</code>`).join(' · ')}<br>` : '';
     const hasIssues = parsed.errors.length + parsed.warnings.length > 0;
-    const guidance = userQuestion ? `<br><strong>Sua dúvida:</strong> "${escH(userQuestion)}"<br>Identifique o código de erro específico (ex: <code>ECD-XXXX</code>) para orientação detalhada.` : '';
-    return `<h4>📋 Relatório de Erros do PVA</h4>
-<strong>Arquivo analisado:</strong> ${parsed.total} linhas processadas<br>
-${hasIssues ? errHtml + warnHtml : '✅ Nenhum erro ou advertência identificado automaticamente.'}
+
+    // Build specific guidance per register found
+    const regGuidance = [];
+    if (parsed.regs) {
+      if (parsed.regs.includes('I155')) regGuidance.push(`<li><code>I155</code> — Saldos Periódicos: verifique se todos os meses do intervalo do arquivo (conforme registro 0000) possuem I155 gerado. Meses sem movimento também precisam de registro com saldo zero.</li>`);
+      if (parsed.regs.includes('I250')) regGuidance.push(`<li><code>I250</code> — Partidas do Lançamento: a soma dos débitos e créditos nos I250 deve bater exatamente com o saldo informado no I155 do período. Verifique se há lançamentos faltando ou duplicados no ERP para o mês divergente.</li>`);
+      if (parsed.regs.includes('J150')) regGuidance.push(`<li><code>J150</code> — DRE: o campo <code>VL_CTA_FIN</code> no J150 deve corresponder ao saldo calculado a partir dos I355 (saldos de contas de resultado). Regere o Bloco J após corrigir os saldos periódicos.</li>`);
+      if (parsed.regs.includes('I355')) regGuidance.push(`<li><code>I355</code> — Saldos de Contas de Resultado: verifique se os saldos dos períodos estão consistentes com os lançamentos do I250.</li>`);
+    }
+
+    const guidance = userQuestion ? `<br><strong>Pergunta:</strong> ${escH(userQuestion)}<br>` : '';
+    return `<h4>📋 Análise do Relatório PVA</h4>
 ${guidance}
+<strong>Conteúdo processado:</strong> ${parsed.total} linhas<br>
+${regsHtml}
+${hasIssues ? errHtml + warnHtml : '✅ Nenhum erro ou advertência identificado automaticamente no texto extraído.'}
+${regGuidance.length ? `<h4>🔧 Orientação por registro</h4><ul>${regGuidance.join('')}</ul>` : ''}
 <strong>Próximos passos:</strong><ul>
-<li>Copie o código do erro específico (ex: <code>ECD-0053</code>) e pergunte para análise detalhada</li>
-<li>Verifique os erros críticos antes das advertências</li>
-<li>Corrija um erro por vez e revalide no PVA</li></ul>
-${ctx.anyLoaded ? `<strong>Contexto dos seus arquivos SPED também carregado.</strong>` : ''}`;
+<li>Corrija os erros do <code>I155</code> primeiro (saldos periódicos) — os demais geralmente dependem deles</li>
+<li>Após corrigir, revalide no PVA antes de reprocessar o Bloco J</li>
+<li>Pergunte sobre um registro específico para orientação detalhada</li></ul>
+${ctx.anyLoaded ? `<strong>Arquivos SPED carregados também disponíveis para contexto.</strong>` : ''}`;
   }
 
   // Pattern matching – erros comuns ECD/ECF
