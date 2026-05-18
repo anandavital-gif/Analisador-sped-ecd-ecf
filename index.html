@@ -822,14 +822,21 @@ function diagECD(p, label) {
   const bt = p.byType;
   const bb = p.byBlock;
 
+  const cnpjVal = p.meta.cnpj || '(não encontrado)';
+  const dtIniVal = p.meta.dtIni || '(não encontrado)';
+  const dtFinVal = p.meta.dtFin || '(não encontrado)';
+  const nomeVal = p.meta.nome || '(não encontrado)';
+
   // ECD001 – 0000 ausente
   if (!bt['0000'] || bt['0000'].length === 0) {
-    diags.push({ level: 'error', code: 'ECD001', file: label, msg: 'Registro 0000 ausente', detail: 'O registro de abertura obrigatório não foi encontrado. O arquivo pode estar corrompido ou não ser um arquivo SPED ECD válido.' });
+    diags.push({ level: 'error', code: 'ECD001', file: label, msg: 'Registro 0000 ausente',
+      detail: '🔴 Crítico — bloqueia validação no PVA.\nO registro de abertura (0000) é obrigatório e deve ser a primeira linha do arquivo. Arquivo pode estar corrompido ou não ser um SPED ECD válido.\nAção corretiva: Regere o arquivo pelo ERP (Protheus: SIGACTL → CTBS010) e valide novamente.\nReferência: Manual ECD v10 — Registro 0000, Regra 0000-01; IN RFB 1.774/2017 Art. 3º.' });
   }
 
   // ECD002 – CNPJ inválido
   if (p.meta.cnpj && !validCNPJ(p.meta.cnpj.replace(/\D/g, ''))) {
-    diags.push({ level: 'error', code: 'ECD002', file: label, msg: `CNPJ inválido: ${p.meta.cnpj}`, detail: 'O CNPJ informado no registro 0000 não passa na validação dos dígitos verificadores.' });
+    diags.push({ level: 'error', code: 'ECD002', file: label, msg: `CNPJ inválido: ${cnpjVal}`,
+      detail: `🔴 Crítico — bloqueia transmissão na RFB.\nValor encontrado no registro 0000: ${cnpjVal}. Os dígitos verificadores não conferem.\nAção corretiva: Corrija o CNPJ no cadastro do contribuinte no ERP e regere o arquivo. Confirme o CNPJ no cartão do CNPJ (site da RFB).\nReferência: Manual ECD — Registro 0000 campo CNPJ; Decreto 7.574/2011 Art. 102.` });
   }
 
   // ECD003 – Período
@@ -837,33 +844,39 @@ function diagECD(p, label) {
     const ini = parseDateBR(p.meta.dtIni);
     const fin = parseDateBR(p.meta.dtFin);
     if (ini && fin && ini > fin) {
-      diags.push({ level: 'error', code: 'ECD003', file: label, msg: 'Data inicial maior que a data final no 0000', detail: `DT_INI: ${p.meta.dtIni} | DT_FIN: ${p.meta.dtFin}. Corrija as datas no sistema de origem e retifique o arquivo.` });
+      diags.push({ level: 'error', code: 'ECD003', file: label, msg: 'Data inicial maior que a data final no 0000',
+        detail: `🔴 Crítico — período inválido rejeitado pelo PVA.\nDT_INI encontrado: ${dtIniVal} | DT_FIN encontrado: ${dtFinVal}. A data de início deve ser anterior à data de encerramento.\nAção corretiva: Corrija as datas de período no sistema de origem (Protheus: parâmetro MV_ECDANO e período do CTBS010) e retifique o arquivo.\nReferência: Manual ECD — Registro 0000 campos DT_INI/DT_FIN; IN RFB 1.774/2017 Art. 3º.` });
     }
   }
 
   // ECD004 – Bloco I ausente
   if (!bb['I'] || bb['I'].length === 0) {
-    diags.push({ level: 'error', code: 'ECD004', file: label, msg: 'Bloco I ausente (Diário Contábil)', detail: 'O bloco I é obrigatório na ECD. Contém o plano de contas (I010), saldos (I150) e lançamentos (I200/I250). Verifique a geração no ERP.' });
+    diags.push({ level: 'error', code: 'ECD004', file: label, msg: 'Bloco I ausente (Diário Contábil)',
+      detail: `🔴 Crítico — bloqueia validação no PVA.\nO Bloco I é estrutura central da ECD: contém o plano de contas (I010), saldos periódicos (I150/I155) e lançamentos (I200/I250). Empresa: ${nomeVal} | CNPJ: ${cnpjVal}.\nAção corretiva: Verifique os parâmetros de geração no ERP (Protheus: CTBS010 — abas Blocos I). Confirme se há lançamentos contábeis no período ${dtIniVal} a ${dtFinVal}.\nReferência: Manual ECD v10 — Bloco I; IN RFB 1.774/2017 Art. 3º.` });
   }
 
   // ECD005 – Bloco J ausente
   if (!bb['J'] || bb['J'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECD005', file: label, msg: 'Bloco J ausente (Demonstrações Contábeis)', detail: 'O bloco J contém o Balanço Patrimonial (J150) e a DRE (J100). Obrigatório para maioria das empresas. Verifique se a escrituração inclui as demonstrações.' });
+    diags.push({ level: 'warn', code: 'ECD005', file: label, msg: 'Bloco J ausente (Demonstrações Contábeis)',
+      detail: `🟡 Advertência — pode causar rejeição dependendo do porte/regime.\nO Bloco J contém o Balanço Patrimonial (J150) e a DRE (J100). Obrigatório para a maioria das empresas obrigadas à ECD. Empresa: ${nomeVal}.\nAção corretiva: Execute o fechamento contábil no ERP e habilite a geração do Bloco J (Protheus: CTBS010 → Bloco J → "Gerar Demonstrações"). Verifique se o módulo de encerramento foi executado.\nReferência: Manual ECD — Bloco J, Registros J005/J100/J150; IN RFB 1.774/2017 Art. 3º § 2º.` });
   }
 
   // ECD006 – 9999 ausente
   if (!bt['9999'] || bt['9999'].length === 0) {
-    diags.push({ level: 'error', code: 'ECD006', file: label, msg: 'Registro 9999 ausente (Encerramento do arquivo)', detail: 'Arquivo sem encerramento. Pode estar truncado. Não será aceito pelo PVA.' });
+    diags.push({ level: 'error', code: 'ECD006', file: label, msg: 'Registro 9999 ausente (Encerramento do arquivo)',
+      detail: `🔴 Crítico — arquivo incompleto, não aceito pelo PVA.\nO registro 9999 encerra o arquivo SPED e informa a contagem total de linhas. Sua ausência indica arquivo truncado ou interrupção na geração.\nAção corretiva: Regere o arquivo completamente pelo ERP. Nunca edite o arquivo .txt manualmente. Verifique se há erros de disco ou permissão durante a geração.\nReferência: Manual ECD — Registro 9999, Regra 9999-01; IN RFB 1.774/2017.` });
   }
 
   // ECD007 – I010 ausente
   if (!bt['I010'] || bt['I010'].length === 0) {
-    diags.push({ level: 'error', code: 'ECD007', file: label, msg: 'I010 ausente — Plano de Contas não encontrado', detail: 'O registro I010 define o plano de contas analítico. Obrigatório. Verifique o cadastro de contas no ERP e a exportação SPED.' });
+    diags.push({ level: 'error', code: 'ECD007', file: label, msg: 'I010 ausente — Plano de Contas não encontrado',
+      detail: `🔴 Crítico — sem plano de contas o PVA rejeita o arquivo.\nO I010 define cada conta do plano analítico/sintético. Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: Verifique o cadastro de contas no ERP (Protheus: SIGACTL → CT1) e confirme que o plano de contas está vinculado ao período. Regere o arquivo após corrigir.\nReferência: Manual ECD — Registro I010, Regras I01-01 a I01-05; IN RFB 1.774/2017 Art. 3º.` });
   }
 
   // ECD008 – I150 ausente
   if (!bt['I150'] || bt['I150'].length === 0) {
-    diags.push({ level: 'error', code: 'ECD008', file: label, msg: 'I150 ausente — Balancete não encontrado', detail: 'O registro I150 contém os saldos das contas por período. Fundamental para validação e recuperação na ECF.' });
+    diags.push({ level: 'error', code: 'ECD008', file: label, msg: 'I150 ausente — Balancete não encontrado',
+      detail: `🔴 Crítico — sem saldos o PVA não valida e a recuperação na ECF falha.\nO I150 contém os saldos inicial e final de cada conta por período de escrituração. Empresa: ${nomeVal} | CNPJ: ${cnpjVal}.\nAção corretiva: Confirme que o fechamento contábil do período ${dtIniVal} a ${dtFinVal} foi realizado no ERP. Verifique a parametrização da geração de balancetes (Protheus: CT2 — saldos contábeis). Regere o arquivo.\nReferência: Manual ECD — Registro I150, Regras I15-01 a I15-09; IN RFB 1.774/2017.` });
   }
 
   // ECD009 – Contagem 9900
@@ -873,7 +886,8 @@ function diagECD(p, label) {
       const qtd9900 = parseInt(r9.fields[1] || '0', 10);
       const qtdReal = (bt[tipo] || []).length;
       if (tipo && qtd9900 !== qtdReal) {
-        diags.push({ level: 'error', code: 'ECD009', file: label, msg: `Contagem divergente no 9900: ${tipo}`, detail: `9900 informa ${qtd9900} registros de ${tipo}, mas foram encontrados ${qtdReal}. Possível arquivo truncado ou geração incorreta.` });
+        diags.push({ level: 'error', code: 'ECD009', file: label, msg: `Contagem divergente no 9900: ${tipo}`,
+          detail: `🔴 Crítico — contagem incorreta bloqueia validação no PVA.\n9900 declara ${qtd9900} registros do tipo ${tipo}, mas foram encontrados ${qtdReal} no arquivo (diferença: ${qtdReal - qtd9900}).\nAção corretiva: Nunca edite manualmente o arquivo SPED. Regere o arquivo pelo ERP ou use o PVA (Arquivo → Reescrever). Se o problema persistir, verifique integridade do processo de exportação no ERP.\nReferência: Manual ECD — Registro 9900, Regra 9900-01.` });
       }
     }
   }
@@ -882,7 +896,8 @@ function diagECD(p, label) {
   if (bt['I010']) {
     const semTipo = bt['I010'].filter(r => !r.fields[3] && !r.fields[2]).length;
     if (semTipo > 0) {
-      diags.push({ level: 'warn', code: 'ECD010', file: label, msg: `${semTipo} contas no I010 sem indicador sintética/analítica`, detail: 'Contas sem campo IND_CTA preenchido. O PVA pode rejeitar. Verifique o cadastro de contas no ERP.' });
+      diags.push({ level: 'warn', code: 'ECD010', file: label, msg: `${semTipo} contas no I010 sem indicador sintética/analítica`,
+        detail: `🟡 Advertência — pode causar rejeição pelo PVA.\n${semTipo} registros I010 sem o campo IND_CTA preenchido (S=Sintética, A=Analítica). Empresa: ${nomeVal}.\nAção corretiva: No ERP (Protheus: SIGACTL → CT1), verifique o campo "Tipo" (S/A) em cada conta e preencha corretamente. Regere o arquivo após corrigir o cadastro.\nReferência: Manual ECD — Registro I010 campo IND_CTA, Regra I01-03.` });
     }
   }
 
@@ -890,22 +905,26 @@ function diagECD(p, label) {
   if (!bt['I012'] || bt['I012'].length === 0) {
     const hasI010 = bt['I010'] && bt['I010'].length > 0;
     if (hasI010) {
-      diags.push({ level: 'warn', code: 'ECD011', file: label, msg: 'I012 ausente — Mapeamento referencial não encontrado', detail: 'O I012 mapeia as contas do plano local para o Plano Referencial da RFB. Ausente pode causar erro na recuperação da ECD na ECF e advertências no PVA.' });
+      diags.push({ level: 'warn', code: 'ECD011', file: label, msg: 'I012 ausente — Mapeamento referencial não encontrado',
+        detail: `🟡 Advertência — impede recuperação correta da ECD na ECF.\nO I012 mapeia cada conta analítica do plano local para o Plano de Contas Referencial da RFB. Sem ele a ECF não consegue preencher os Blocos J e K automaticamente. Empresa: ${nomeVal} | ${(bt['I010'] || []).length} contas no I010.\nAção corretiva: No Protheus (SIGACTL → Plano de Contas → campo Cta. Referencial / CT1_CTAREF), vincule cada conta analítica ao código referencial da tabela RFB. Consulte a tabela atualizada em www.sped.rfb.gov.br. Regere o arquivo.\nReferência: Manual ECD — Registro I012, Regra I12-01; ADE Cofis 65/2013.` });
     }
   }
 
   // ECD012 – J100/J150 sem registros com saldo
   if (bt['J100'] && bt['J100'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECD012', file: label, msg: 'J100 sem registros — DRE possivelmente vazia', detail: 'Verifique se as demonstrações contábeis foram geradas corretamente no ERP.' });
+    diags.push({ level: 'warn', code: 'ECD012', file: label, msg: 'J100 sem registros — DRE possivelmente vazia',
+      detail: `🟡 Advertência — demonstrações contábeis incompletas.\nO Bloco J foi gerado mas sem linhas de DRE (J100). Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: Execute o fechamento do exercício no ERP e confirme que as contas de resultado foram encerradas. No Protheus, verifique o módulo de encerramento (SIGACTL → Encerramento do Exercício) antes de reger o arquivo.\nReferência: Manual ECD — Registro J100; NBC TG 26 (CPC 26); IN RFB 1.774/2017.` });
   }
 
   // ECD013 – I200 ausente (sem lançamentos)
   if (!bt['I200'] || bt['I200'].length === 0) {
-    diags.push({ level: 'warn', code: 'ECD013', file: label, msg: 'I200 ausente — Nenhum lançamento contábil encontrado', detail: 'O I200 registra os artigos do diário (cabeçalho dos lançamentos). Ausente indica que não há lançamentos ou que a geração está incompleta.' });
+    diags.push({ level: 'warn', code: 'ECD013', file: label, msg: 'I200 ausente — Nenhum lançamento contábil encontrado',
+      detail: `🟡 Advertência — diário sem artigos pode indicar falha na exportação.\nO I200 é o cabeçalho de cada artigo do Diário (lançamento contábil). Empresa: ${nomeVal} | Período: ${dtIniVal} a ${dtFinVal}.\nAção corretiva: Confirme que existem lançamentos (CT5) no ERP para o período. Verifique os filtros de período e empresa na rotina de geração (Protheus: CTBS010). Se a empresa não teve movimentação, certifique-se de que isso é esperado.\nReferência: Manual ECD — Registro I200, Regras I20-01 a I20-03.` });
   }
 
   if (diags.length === 0) {
-    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado', detail: 'A estrutura básica do arquivo está conforme. Recomenda-se validação completa pelo PVA da RFB.' });
+    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado',
+      detail: `🟢 Informativo — estrutura básica conforme.\nEmpresa: ${nomeVal} | CNPJ: ${cnpjVal} | Período: ${dtIniVal} a ${dtFinVal}.\nA estrutura de registros obrigatórios está presente. Recomenda-se validação completa pelo PVA da RFB antes da transmissão para detecção de inconsistências de valores.` });
   }
 
   return diags;
@@ -1770,6 +1789,184 @@ function buildCrossContextMsg() {
   const sameCnpj = (ecd.meta.cnpj || '').replace(/\D/g,'') === (ecf.meta.cnpj || '').replace(/\D/g,'');
   const samePeriod = ecd.meta.dtIni === ecf.meta.dtIni;
   return `CNPJ ${sameCnpj ? '✓ confere' : '✗ diverge'} | Período ${samePeriod ? '✓ confere' : '✗ diverge'}`;
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function renderDashboard() {
+  const el = document.getElementById('dashboard-content');
+  if (!el) return;
+
+  // Greeting
+  const user = auth && auth.currentUser;
+  const userEmail = user ? user.email : (document.getElementById('headerUserEmail').textContent || 'Usuário');
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  // Stats from current analysis
+  const totalCompanies = (() => {
+    const cnpjs = new Set();
+    for (const p of Object.values(parsed)) {
+      if (p && p.meta && p.meta.cnpj) cnpjs.add(p.meta.cnpj.replace(/\D/g,''));
+    }
+    return cnpjs.size;
+  })();
+  const filesAnalyzed = Object.values(parsed).filter(p => p !== null).length;
+  const errorsCount = analysisResults ? (analysisResults.diagnostics || []).filter(d => d.level === 'error').length : 0;
+
+  let html = `<div class="dash-greeting">
+    <div class="dash-greeting-text">
+      <div class="dash-greeting-name">Olá, ${escH(userEmail)}</div>
+      <div class="dash-greeting-date">${escH(dateStr)} · ${escH(timeStr)}</div>
+      <div class="dash-greeting-last" id="dashLastAccess">Carregando último acesso...</div>
+    </div>
+    <div style="font-size:2.5rem;opacity:.7">🏠</div>
+  </div>
+
+  <div class="dash-stat-grid">
+    <div class="dash-stat" style="--ds-accent:#1c4879">
+      <div class="dash-stat-label">Empresas no Arquivo</div>
+      <div class="dash-stat-value">${totalCompanies}</div>
+      <div class="dash-stat-sub">CNPJs distintos carregados</div>
+    </div>
+    <div class="dash-stat" style="--ds-accent:#187a4b">
+      <div class="dash-stat-label">Arquivos Analisados</div>
+      <div class="dash-stat-value">${filesAnalyzed}</div>
+      <div class="dash-stat-sub">Na sessão atual</div>
+    </div>
+    <div class="dash-stat" style="--ds-accent:${errorsCount > 0 ? '#c0392b' : '#187a4b'}">
+      <div class="dash-stat-label">Erros na Última Análise</div>
+      <div class="dash-stat-value" style="color:${errorsCount > 0 ? 'var(--red)' : 'var(--green)'}">${errorsCount}</div>
+      <div class="dash-stat-sub">${errorsCount > 0 ? 'Erros críticos encontrados' : analysisResults ? 'Sem erros críticos' : 'Análise não executada'}</div>
+    </div>
+  </div>
+
+  <div class="dash-quick-btns">
+    <button class="dash-quick-btn dash-quick-btn-primary" onclick="document.querySelector('.upload-grid').scrollIntoView({behavior:'smooth'})">📤 Carregar Arquivos</button>
+    <button class="dash-quick-btn dash-quick-btn-secondary" onclick="switchTab('consultor')">💬 Consultor IA</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🕐 Histórico de Acessos Recentes</div>
+    <div id="dashHistoryWrap">
+      <div class="dash-empty">Carregando histórico...</div>
+    </div>
+  </div>`;
+
+  el.innerHTML = html;
+
+  // Load Firestore history async
+  loadAccessHistory();
+}
+
+async function loadAccessHistory() {
+  const wrap = document.getElementById('dashHistoryWrap');
+  const lastAccessEl = document.getElementById('dashLastAccess');
+  if (!wrap) return;
+
+  if (!firebaseReady || !firestoreDb) {
+    if (wrap) wrap.innerHTML = '<div class="dash-empty">Histórico indisponível (Firebase não configurado).</div>';
+    if (lastAccessEl) lastAccessEl.textContent = '';
+    return;
+  }
+
+  try {
+    const snap = await firestoreDb.collection('acessos').orderBy('timestamp', 'desc').limit(20).get();
+    if (snap.empty) {
+      wrap.innerHTML = '<div class="dash-empty">Nenhum acesso registrado ainda.</div>';
+      if (lastAccessEl) lastAccessEl.textContent = '';
+      return;
+    }
+
+    const rows = [];
+    snap.forEach(doc => rows.push(doc.data()));
+
+    // Show last access info (second row = previous, first = current)
+    if (rows.length > 1 && lastAccessEl) {
+      const prev = rows[1];
+      const prevTs = prev.timestamp ? prev.timestamp.toDate() : null;
+      const prevStr = prevTs ? prevTs.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+      lastAccessEl.textContent = `Último acesso anterior: ${prevStr} · ${escH(prev.browser || '–')}`;
+    } else if (lastAccessEl) {
+      lastAccessEl.textContent = 'Primeiro acesso registrado.';
+    }
+
+    let tableHtml = `<div class="table-wrap"><table class="dash-history-table">
+      <thead><tr><th>E-mail</th><th>Data/Hora</th><th>Navegador</th></tr></thead>
+      <tbody>`;
+    for (const row of rows.slice(0, 10)) {
+      const ts = row.timestamp ? row.timestamp.toDate() : null;
+      const tsStr = ts ? ts.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '–';
+      tableHtml += `<tr>
+        <td>${escH(row.email || '–')}</td>
+        <td style="white-space:nowrap">${escH(tsStr)}</td>
+        <td>${escH(row.browser || '–')}</td>
+      </tr>`;
+    }
+    tableHtml += `</tbody></table></div>`;
+    wrap.innerHTML = tableHtml;
+  } catch (e) {
+    console.warn('Firestore history error:', e);
+    wrap.innerHTML = '<div class="dash-empty">Não foi possível carregar o histórico.</div>';
+    if (lastAccessEl) lastAccessEl.textContent = '';
+  }
+}
+
+// ─── Email Diagnosis ──────────────────────────────────────────────────────────
+function showToast(msg, duration) {
+  duration = duration || 4000;
+  const el = document.getElementById('toastMsg');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+async function sendDiagnosisEmail() {
+  // Check placeholders
+  if (!emailjsConfig.serviceId || emailjsConfig.serviceId === 'EMAILJS_SERVICE_ID') return;
+  if (!emailjsConfig.templateId || emailjsConfig.templateId === 'EMAILJS_TEMPLATE_ID') return;
+  if (!emailjsConfig.publicKey || emailjsConfig.publicKey === 'EMAILJS_PUBLIC_KEY') return;
+  if (typeof emailjs === 'undefined') return;
+
+  const user = auth && auth.currentUser;
+  if (!user || !user.email) return;
+
+  const ecd = parsed['ecd-atu'];
+  const ecf = parsed['ecf-atu'];
+  const empresa = (ecd && ecd.meta.nome) || (ecf && ecf.meta.nome) || '–';
+  const cnpj = (ecd && ecd.meta.cnpj) || (ecf && ecf.meta.cnpj) || '–';
+  const dtIni = (ecd && ecd.meta.dtIni) || (ecf && ecf.meta.dtIni) || '–';
+  const dtFin = (ecd && ecd.meta.dtFin) || (ecf && ecf.meta.dtFin) || '–';
+  const periodo = `${dtIni} a ${dtFin}`;
+
+  const diags = (analysisResults && analysisResults.diagnostics) || [];
+  const erros = diags.filter(d => d.level === 'error');
+  const avisos = diags.filter(d => d.level === 'warn');
+
+  const lines = diags.filter(d => d.level === 'error' || d.level === 'warn').slice(0, 20)
+    .map(d => `[${d.level.toUpperCase()}] ${d.code} – ${d.msg}`);
+  const resumo = lines.join('\n') || 'Nenhum erro ou advertência encontrado.';
+
+  try {
+    await emailjs.send(
+      emailjsConfig.serviceId,
+      emailjsConfig.templateId,
+      {
+        to_email: user.email,
+        empresa,
+        cnpj,
+        periodo,
+        resumo_diagnostico: resumo,
+        total_erros: erros.length,
+        total_avisos: avisos.length
+      },
+      emailjsConfig.publicKey
+    );
+    showToast('📧 Diagnóstico enviado por e-mail', 4000);
+  } catch (e) {
+    console.warn('EmailJS send error:', e);
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
