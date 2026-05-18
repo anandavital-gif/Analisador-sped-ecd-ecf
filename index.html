@@ -218,6 +218,30 @@ body[data-theme=dark] tbody tr:hover td{background:#1a2840}
 .fw-600{font-weight:600}
 hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 
+/* ── Login overlay ──────────────────────────────────────────────── */
+#loginOverlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a1e3d 0%,#123a67 60%,#1f4f86 100%)}
+.login-card{background:#fff;border-radius:16px;padding:2.5rem 2rem 2rem;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+body[data-theme=dark] .login-card{background:#162136;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.login-logo{text-align:center;margin-bottom:1.5rem}
+.login-logo-eyebrow{font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.login-logo-title{font-size:20px;font-weight:800;color:var(--navy)}
+.login-logo-title em{font-style:italic;color:var(--navy-mid)}
+.login-subtitle{font-size:12px;color:var(--text-3);text-align:center;margin-top:4px}
+.login-field{margin-bottom:1rem}
+.login-field label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+.login-input{width:100%;padding:9px 12px;font-size:13px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:'Inter',sans-serif;outline:none;transition:border-color .15s}
+.login-input:focus{border-color:var(--navy-mid);box-shadow:0 0 0 3px var(--navy-light)}
+.login-remember{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);margin-bottom:1.25rem;cursor:pointer}
+.login-btn{width:100%;padding:10px;font-size:13.5px;font-weight:700;font-family:'Inter',sans-serif;background:var(--navy-mid);color:#fff;border:none;border-radius:8px;cursor:pointer;transition:background .15s}
+.login-btn:hover{background:#234e87}
+.login-btn:disabled{opacity:.6;cursor:not-allowed}
+.login-error{display:none;margin-top:.75rem;padding:8px 12px;background:var(--red-light);border:1px solid var(--red);border-radius:7px;font-size:12px;color:var(--red);text-align:center}
+.login-config-warning{margin-top:1rem;padding:8px 12px;background:var(--amber-light);border:1px solid var(--amber);border-radius:7px;font-size:11px;color:var(--amber);text-align:center;display:none}
+/* Logout button in header */
+.btn-logout{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);border-radius:7px;cursor:pointer;transition:background .15s}
+.btn-logout:hover{background:rgba(255,255,255,.28)}
+.login-user-info{font-size:11px;color:rgba(255,255,255,.7);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* PDF export button */
 .btn-pdf{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;background:#fff;color:var(--navy);border:1.5px solid rgba(255,255,255,.5);border-radius:8px;cursor:pointer;transition:background .15s,color .15s}
 .btn-pdf:hover{background:var(--navy-light);color:var(--navy-mid);border-color:var(--navy-mid)}
@@ -265,8 +289,38 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
 .print-timestamp{display:none;font-size:9pt;color:#666;margin-top:4px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+
+<!-- Login Overlay -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-eyebrow">Grupo Paraná · Contabilidade Corporativa</div>
+      <div class="login-logo-title">Analisador <em>SPED</em> ECD/ECF</div>
+      <div class="login-subtitle">Faça login para acessar o painel</div>
+    </div>
+    <div class="login-field">
+      <label for="loginEmail">E-mail</label>
+      <input class="login-input" id="loginEmail" type="email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label for="loginPassword">Senha</label>
+      <input class="login-input" id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <label class="login-remember">
+      <input type="checkbox" id="loginRemember" checked> Manter conectado
+    </label>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-config-warning" id="loginConfigWarning">
+      ⚠️ Firebase não configurado. Edite a seção <code>firebaseConfig</code> no HTML.
+    </div>
+  </div>
+</div>
 
 <header class="header">
   <div>
@@ -275,6 +329,8 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
     <div class="header-meta">Upload · Validação · Comparativo · Cruzamento · Consultor IA</div>
   </div>
   <div class="header-right">
+    <span class="login-user-info" id="headerUserEmail"></span>
+    <button class="btn-logout" id="btnLogout" onclick="doLogout()" style="display:none" type="button">↩ Sair</button>
     <button class="btn-pdf" onclick="exportPDF()" type="button">⬇ Gerar PDF</button>
 <button class="theme-toggle" onclick="toggleTheme()" type="button">
       <span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8V5.2M12 18.8V21.2M21.2 12H18.8M5.2 12H2.8M18.5 5.5L16.8 7.2M7.2 16.8L5.5 18.5M18.5 18.5L16.8 16.8M7.2 7.2L5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
@@ -1704,6 +1760,91 @@ function validCNPJ(digits) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Firebase Auth ────────────────────────────────────────────────────────────
+// CONFIGURAÇÃO: substitua os valores abaixo pelos do seu projeto Firebase.
+// Como obter: console.firebase.google.com → Projeto → Configurações → Seus apps → SDK
+const firebaseConfig = {
+  apiKey:            "COLE_AQUI",
+  authDomain:        "COLE_AQUI",
+  projectId:         "COLE_AQUI",
+  storageBucket:     "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId:             "COLE_AQUI"
+};
+
+let firebaseReady = false;
+let auth = null;
+
+(function initFirebase() {
+  try {
+    const isConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'COLE_AQUI';
+    if (!isConfigured) {
+      document.getElementById('loginConfigWarning').style.display = 'block';
+      return;
+    }
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    firebaseReady = true;
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('headerUserEmail').textContent = user.email;
+        document.getElementById('btnLogout').style.display = 'inline-flex';
+      } else {
+        document.getElementById('loginOverlay').style.display = 'flex';
+        document.getElementById('headerUserEmail').textContent = '';
+        document.getElementById('btnLogout').style.display = 'none';
+      }
+    });
+  } catch (e) {
+    console.error('Firebase init error:', e);
+    document.getElementById('loginConfigWarning').style.display = 'block';
+  }
+})();
+
+async function doLogin() {
+  if (!firebaseReady) return;
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const remember = document.getElementById('loginRemember').checked;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  if (!email || !password) { showLoginError('Preencha e-mail e senha.'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+  try {
+    const persistence = remember
+      ? firebase.auth.Auth.Persistence.LOCAL
+      : firebase.auth.Auth.Persistence.SESSION;
+    await auth.setPersistence(persistence);
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (err) {
+    const msgs = {
+      'auth/user-not-found':    'Usuário não encontrado.',
+      'auth/wrong-password':    'Senha incorreta.',
+      'auth/invalid-email':     'E-mail inválido.',
+      'auth/too-many-requests': 'Muitas tentativas. Aguarde e tente novamente.',
+      'auth/invalid-credential':'E-mail ou senha incorretos.'
+    };
+    showLoginError(msgs[err.code] || 'Erro ao entrar. Verifique os dados.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function doLogout() {
+  if (auth) auth.signOut();
+}
+
 // ─── Archive (IndexedDB) ──────────────────────────────────────────────────────
 let db = null;
 const SLOT_LABELS = { 'ecd-ant': '📘 ECD Anterior', 'ecd-atu': '📗 ECD Atual', 'ecf-ant': '📙 ECF Anterior', 'ecf-atu': '📒 ECF Atual' };
