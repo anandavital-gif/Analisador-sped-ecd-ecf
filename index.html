@@ -167,6 +167,12 @@ body[data-theme=dark] tbody tr:hover td{background:#1a2840}
 .chat-msg-bot ul{padding-left:1.2rem;margin:.3rem 0}
 .chat-msg-bot li{margin-bottom:.2rem}
 .chat-msg-bot code{font-size:11px;background:var(--neutral);padding:1px 4px;border-radius:3px;font-family:monospace}
+.chat-input-wrap{display:flex;flex-direction:column;flex:1;gap:6px}
+.pva-attach-bar{display:flex;align-items:center;gap:8px}
+.pva-attach-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;font-size:11.5px;font-weight:600;font-family:'Inter',sans-serif;border:1px dashed var(--navy-mid);background:var(--navy-light);color:var(--navy);border-radius:6px;cursor:pointer;transition:background .15s}
+.pva-attach-btn:hover{background:#d6e4f7}
+.pva-badge{display:none;align-items:center;gap:5px;padding:3px 9px;font-size:11px;font-weight:600;background:var(--green-light);color:var(--green);border:1px solid var(--green);border-radius:6px}
+.pva-badge-remove{background:none;border:none;cursor:pointer;color:var(--green);font-size:13px;line-height:1;padding:0 0 0 2px}
 .chat-input-row{display:flex;gap:8px;padding:.75rem 1rem;border-top:1px solid var(--border);background:var(--white)}
 .chat-input{flex:1;padding:8px 12px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:'Inter',sans-serif;outline:none;resize:none}
 .chat-input:focus{border-color:var(--navy-mid);box-shadow:0 0 0 3px var(--navy-light)}
@@ -351,7 +357,17 @@ hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
       </div>
       <div class="chat-typing" id="chatTyping"><div class="dot-flashing"></div> Analisando...</div>
       <div class="chat-input-row">
-        <textarea class="chat-input" id="chatInput" rows="2" placeholder="Digite seu erro, dúvida ou código do PVA..." onkeydown="chatKeyDown(event)"></textarea>
+        <div class="chat-input-wrap">
+          <div class="pva-attach-bar">
+            <button class="pva-attach-btn" onclick="document.getElementById('pvaFileInput').click()">📎 Anexar erros do PVA</button>
+            <span class="pva-badge" id="pvaBadge">
+              <span id="pvaBadgeName"></span>
+              <button class="pva-badge-remove" onclick="removePVA()" title="Remover">✕</button>
+            </span>
+          </div>
+          <textarea class="chat-input" id="chatInput" rows="2" placeholder="Digite sua dúvida ou descreva o problema..." onkeydown="chatKeyDown(event)"></textarea>
+        </div>
+        <input type="file" id="pvaFileInput" accept=".txt,.log,.xml" style="display:none" onchange="onPVAFileSelect(event)">
         <button class="chat-send" onclick="sendChat()">Enviar ▶</button>
       </div>
     </div>
@@ -1159,6 +1175,29 @@ function renderCruzamento() {
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
+let pvaContent = null;
+
+function onPVAFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pvaContent = e.target.result;
+    document.getElementById('pvaBadgeName').textContent = '📄 ' + file.name;
+    const badge = document.getElementById('pvaBadge');
+    badge.style.display = 'inline-flex';
+    appendMsg(`<strong>Arquivo PVA anexado:</strong> <code>${escH(file.name)}</code><br><small>${pvaContent.split('\n').length} linhas carregadas. Envie sua pergunta para analisar os erros.</small>`, 'bot');
+  };
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function removePVA() {
+  pvaContent = null;
+  document.getElementById('pvaBadge').style.display = 'none';
+  document.getElementById('pvaBadgeName').textContent = '';
+}
+
 function chatKeyDown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 }
@@ -1166,12 +1205,14 @@ function chatKeyDown(e) {
 function sendChat() {
   const input = document.getElementById('chatInput');
   const msg = input.value.trim();
-  if (!msg) return;
+  if (!msg && !pvaContent) return;
+  const displayMsg = msg || '(Analisar erros do PVA anexado)';
+  const queryMsg = pvaContent ? (msg ? msg + '\n\n[ERROS PVA]\n' + pvaContent : '[ERROS PVA]\n' + pvaContent) : msg;
   input.value = '';
-  appendMsg(msg, 'user');
+  appendMsg(displayMsg, 'user');
   document.getElementById('chatTyping').style.display = 'flex';
   setTimeout(() => {
-    const resp = generateResponse(msg);
+    const resp = generateResponse(queryMsg);
     document.getElementById('chatTyping').style.display = 'none';
     appendMsg(resp, 'bot');
   }, 600 + Math.random() * 400);
@@ -1186,9 +1227,43 @@ function appendMsg(html, who) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
+function parsePVAErrors(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const errors = [], warnings = [], infos = [];
+  lines.forEach(l => {
+    const ll = l.toLowerCase();
+    if (/\b(erro|error|crítico|critical|ecd-\d|ecf-\d)/i.test(l)) errors.push(l);
+    else if (/\b(advertência|advertencia|warn|atenção|atencao)/i.test(l)) warnings.push(l);
+    else infos.push(l);
+  });
+  return { errors, warnings, infos, total: lines.length };
+}
+
 function generateResponse(query) {
   const q = query.toLowerCase();
   const ctx = buildContext();
+
+  // PVA file attachment handler
+  if (query.includes('[ERROS PVA]')) {
+    const pvaText = query.split('[ERROS PVA]')[1] || '';
+    const userQuestion = query.split('[ERROS PVA]')[0].trim();
+    const parsed = parsePVAErrors(pvaText);
+    const errHtml = parsed.errors.length
+      ? `<h4>🔴 Erros (${parsed.errors.length})</h4><ul>${parsed.errors.slice(0, 10).map(e => `<li><code>${escH(e)}</code></li>`).join('')}${parsed.errors.length > 10 ? `<li><em>… e mais ${parsed.errors.length - 10} erros</em></li>` : ''}</ul>` : '';
+    const warnHtml = parsed.warnings.length
+      ? `<h4>🟡 Advertências (${parsed.warnings.length})</h4><ul>${parsed.warnings.slice(0, 8).map(w => `<li><code>${escH(w)}</code></li>`).join('')}${parsed.warnings.length > 8 ? `<li><em>… e mais ${parsed.warnings.length - 8}</em></li>` : ''}</ul>` : '';
+    const hasIssues = parsed.errors.length + parsed.warnings.length > 0;
+    const guidance = userQuestion ? `<br><strong>Sua dúvida:</strong> "${escH(userQuestion)}"<br>Identifique o código de erro específico (ex: <code>ECD-XXXX</code>) para orientação detalhada.` : '';
+    return `<h4>📋 Relatório de Erros do PVA</h4>
+<strong>Arquivo analisado:</strong> ${parsed.total} linhas processadas<br>
+${hasIssues ? errHtml + warnHtml : '✅ Nenhum erro ou advertência identificado automaticamente.'}
+${guidance}
+<strong>Próximos passos:</strong><ul>
+<li>Copie o código do erro específico (ex: <code>ECD-0053</code>) e pergunte para análise detalhada</li>
+<li>Verifique os erros críticos antes das advertências</li>
+<li>Corrija um erro por vez e revalide no PVA</li></ul>
+${ctx.anyLoaded ? `<strong>Contexto dos seus arquivos SPED também carregado.</strong>` : ''}`;
+  }
 
   // Pattern matching – erros comuns ECD/ECF
   if (/\b(i012|mapeamento referencial|plano referencial|conta referencial)\b/.test(q)) {
