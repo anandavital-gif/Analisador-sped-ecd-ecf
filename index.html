@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisador SPED ECD/ECF – Grupo Paraná</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#11345b;--navy-mid:#1c4879;--navy-light:#e8f0fb;
+  --amber:#b87514;--amber-light:#fdf3dc;
+  --red:#c0392b;--red-light:#fdecea;
+  --green:#187a4b;--green-light:#e6f4ed;
+  --blue:#1a4a8a;--blue-light:#e8f0fb;
+  --neutral:#f3f6fb;--border:#dce4f0;
+  --text:#152033;--text-2:#3f4b61;--text-3:#6f7d95;
+  --white:#ffffff;--surface:#f8fbff;
+  --header-grad-start:#123a67;--header-grad-end:#1f4f86;
+  --shadow:0 10px 28px rgba(17,52,91,.08),0 2px 8px rgba(17,52,91,.06);
+  --shadow-soft:0 6px 18px rgba(17,52,91,.06);
+}
+body[data-theme=dark]{
+  --navy:#d7e6ff;--navy-mid:#84a9da;--navy-light:#1a2538;
+  --amber:#efb14f;--amber-light:#3a2e1a;
+  --red:#ff8e82;--red-light:#3d1f23;
+  --green:#5dd39e;--green-light:#152e23;
+  --blue:#8fb7ff;--blue-light:#1b2942;
+  --neutral:#0e1522;--border:#2a354a;
+  --text:#ecf2ff;--text-2:#c2cee4;--text-3:#91a2bf;
+  --white:#141d2d;--surface:#162136;
+  --header-grad-start:#0a1220;--header-grad-end:#111f35;
+  --shadow:0 14px 32px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.35);
+  --shadow-soft:0 8px 22px rgba(0,0,0,.33);
+}
+body{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#edf3fc 0%,#f7f9fd 45%,#f3f6fb 100%);color:var(--text);min-height:100vh}
+body[data-theme=dark]{background:linear-gradient(180deg,#0b1220 0%,#0d1524 45%,#0f1728 100%)}
+
+/* Header */
+.header{background:linear-gradient(130deg,var(--header-grad-start) 0%,var(--header-grad-end) 100%);padding:1.8rem 2.5rem 1.6rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;box-shadow:var(--shadow-soft)}
+.header-eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-bottom:.4rem}
+.header-title{font-family:'Source Serif 4',serif;font-size:1.9rem;color:#fff;line-height:1.08}
+.header-title em{font-style:italic;color:#9cc0ea}
+.header-meta{font-size:12px;color:rgba(255,255,255,.68);margin-top:.4rem}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.back-link{font-size:11px;color:rgba(255,255,255,.75);text-decoration:none;border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:4px 12px;transition:background .15s}
+.back-link:hover{background:rgba(255,255,255,.12)}
+.theme-toggle{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(193,216,243,.35);border-radius:999px;background:rgba(156,192,234,.22);color:rgba(212,228,247,1);font-size:12px;padding:4px 8px;font-family:'Inter',sans-serif;cursor:pointer}
+.theme-track{width:34px;height:16px;background:rgba(255,255,255,.35);border-radius:999px;padding:2px;display:inline-flex;align-items:center}
+.theme-thumb{width:12px;height:12px;border-radius:50%;background:#fff;transform:translateX(0);transition:transform .2s}
+body[data-theme=dark] .theme-thumb{transform:translateX(18px)}
+.theme-icon svg{width:14px;height:14px;display:block}
+
+/* Container */
+.container{max-width:1200px;margin:0 auto;padding:2rem 1.5rem 3rem}
+
+/* Upload grid */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:1.5rem}
+@media(max-width:900px){.upload-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.upload-grid{grid-template-columns:1fr}}
+.upload-card{background:var(--white);border:2px dashed var(--border);border-radius:16px;padding:1.4rem 1rem;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;overflow:hidden}
+.upload-card:hover,.upload-card.drag-over{border-color:var(--navy-mid);background:var(--navy-light)}
+.upload-card.loaded{border-style:solid;border-color:var(--green)}
+.upload-card.loaded-ecf{border-color:var(--amber)}
+.upload-icon{font-size:2rem;margin-bottom:.6rem;display:block}
+.upload-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:.3rem}
+.upload-type{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;display:inline-block;margin-bottom:.5rem}
+.type-ecd{background:var(--navy-light);color:var(--navy)}
+.type-ecf{background:var(--amber-light);color:var(--amber)}
+.upload-hint{font-size:11px;color:var(--text-3)}
+.upload-filename{font-size:11px;font-weight:600;color:var(--green);margin-top:.4rem;word-break:break-all}
+.upload-ecf-filename{color:var(--amber)}
+.upload-card input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-remove{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--red-light);color:var(--red);border:none;font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1}
+.upload-card.loaded .upload-remove,.upload-card.loaded-ecf .upload-remove{display:flex}
+
+/* Action bar */
+.action-bar{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:1rem 1.4rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;box-shadow:var(--shadow-soft);flex-wrap:wrap}
+.files-status{display:flex;gap:8px;flex-wrap:wrap}
+.file-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.pill-ok{background:var(--green-light);color:var(--green)}
+.pill-ok-ecf{background:var(--amber-light);color:var(--amber)}
+.pill-empty{background:var(--neutral);color:var(--text-3);border:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:8px 18px;border-radius:10px;cursor:pointer;border:1px solid;transition:background .15s;font-family:'Inter',sans-serif}
+.btn-primary{color:#fff;background:var(--navy-mid);border-color:var(--navy);box-shadow:0 2px 8px rgba(28,72,121,.18)}
+.btn-primary:hover{background:#234e87}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-outline{color:var(--navy);background:var(--navy-light);border-color:#bfd0ea}
+.btn-outline:hover{background:#dce8f8}
+body[data-theme=dark] .btn-outline{background:#1d2d46;border-color:#30486f;color:#d7e6ff}
+.btn-sm{font-size:11px;padding:5px 12px}
+
+/* Tabs */
+.tabs-nav{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:1.5rem;flex-wrap:wrap}
+.tab-btn{font-size:12px;font-weight:600;padding:8px 16px;border:none;background:none;color:var(--text-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;font-family:'Inter',sans-serif;border-radius:6px 6px 0 0}
+.tab-btn:hover{color:var(--navy);background:var(--navy-light)}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--navy-mid);background:var(--navy-light)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* Cards */
+.card{background:var(--white);border:1px solid var(--border);border-radius:16px;padding:1.4rem 1.5rem;box-shadow:var(--shadow-soft);margin-bottom:1.25rem;animation:fadeUp .35s ease both}
+.card:hover{box-shadow:var(--shadow)}
+.card-title{font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-3);margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+.card-title::before{content:'';display:inline-block;width:3px;height:14px;border-radius:2px;background:var(--accent,#1A3A6B);flex-shrink:0}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.grid-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.grid-4{grid-template-columns:1fr}}
+
+/* KPI mini */
+.kpi-mini{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;box-shadow:var(--shadow-soft);position:relative;overflow:hidden}
+.kpi-mini::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,#1A3A6B);border-radius:12px 12px 0 0}
+.kpi-mini-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:.3rem}
+.kpi-mini-value{font-family:'Source Serif 4',serif;font-size:1.6rem;color:var(--navy);line-height:1}
+.kpi-mini-sub{font-size:10px;color:var(--text-3);margin-top:.25rem}
+
+/* Badges / Alerts */
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.badge-ok{background:var(--green-light);color:var(--green)}
+.badge-warn{background:var(--amber-light);color:var(--amber)}
+.badge-err{background:var(--red-light);color:var(--red)}
+.badge-info{background:var(--blue-light);color:var(--blue)}
+.badge-gray{background:var(--neutral);color:var(--text-3);border:1px solid var(--border)}
+
+.diag-list{display:flex;flex-direction:column;gap:8px}
+.diag-item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:10px;font-size:12px;line-height:1.55}
+.diag-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.diag-err{background:var(--red-light);border-left:3px solid var(--red)}
+.diag-warn{background:var(--amber-light);border-left:3px solid var(--amber)}
+.diag-info{background:var(--blue-light);border-left:3px solid var(--blue)}
+.diag-ok{background:var(--green-light);border-left:3px solid var(--green)}
+.diag-body strong{font-weight:700;display:block;margin-bottom:2px}
+.diag-body small{font-size:11px;color:var(--text-3)}
+.diag-code{font-size:10px;font-family:monospace;background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-right:6px}
+
+/* Tables */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{text-align:left;padding:8px 10px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);background:#f3f7fd;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+body[data-theme=dark] thead th{background:#1a2538}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f8fbff}
+body[data-theme=dark] tbody tr:hover td{background:#1a2840}
+.td-num{font-family:monospace;text-align:right}
+.td-pos{color:var(--green)}
+.td-neg{color:var(--red)}
+.td-neutral{color:var(--text-3)}
+
+/* Comparison diff */
+.diff-add{background:#e6f4ed;color:var(--green)}
+.diff-rem{background:var(--red-light);color:var(--red)}
+.diff-change{background:var(--amber-light);color:var(--amber)}
+
+/* Block badge */
+.block-pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--navy-light);color:var(--navy);font-family:monospace}
+
+/* Chat */
+.chat-area{display:flex;flex-direction:column;height:520px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)}
+.chat-messages{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:10px}
+.chat-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:12.5px;line-height:1.6}
+.chat-msg-user{background:var(--navy-mid);color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px}
+.chat-msg-bot{background:var(--white);border:1px solid var(--border);color:var(--text);align-self:flex-start;border-radius:12px 12px 12px 2px}
+.chat-msg-bot strong{color:var(--navy)}
+.chat-msg-bot h4{font-size:12px;font-weight:700;color:var(--navy);margin:.5rem 0 .2rem}
+.chat-msg-bot ul{padding-left:1.2rem;margin:.3rem 0}
+.chat-msg-bot li{margin-bottom:.2rem}
+.chat-msg-bot code{font-size:11px;background:var(--neutral);padding:1px 4px;border-radius:3px;font-family:monospace}
+.chat-input-row{display:flex;gap:8px;padding:.75rem 1rem;border-top:1px solid var(--border);background:var(--white)}
+.chat-input{flex:1;padding:8px 12px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:'Inter',sans-serif;outline:none;resize:none}
+.chat-input:focus{border-color:var(--navy-mid);box-shadow:0 0 0 3px var(--navy-light)}
+.chat-send{padding:8px 14px;background:var(--navy-mid);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:'Inter',sans-serif;font-weight:600;transition:background .15s}
+.chat-send:hover{background:#234e87}
+.chat-typing{display:none;align-items:center;gap:6px;font-size:11px;color:var(--text-3);padding:0 1rem .5rem}
+.dot-flashing{position:relative;width:6px;height:6px;border-radius:50%;background:var(--text-3);animation:dotFlash .8s infinite linear alternate;animation-delay:.4s}
+.dot-flashing::before,.dot-flashing::after{content:'';position:absolute;top:0;width:6px;height:6px;border-radius:50%;background:var(--text-3);animation:dotFlash .8s infinite linear alternate}
+.dot-flashing::before{left:-9px;animation-delay:0s}
+.dot-flashing::after{left:9px;animation-delay:.8s}
+@keyframes dotFlash{0%{background:var(--text-3)}100%{background:var(--border)}}
+
+/* Utilities */
+.empty-state{text-align:center;padding:3rem 1.5rem;color:var(--text-3)}
+.empty-state-icon{font-size:3rem;margin-bottom:.75rem;display:block}
+.empty-state h3{font-size:14px;font-weight:600;color:var(--text-2);margin-bottom:.4rem}
+.empty-state p{font-size:12px;line-height:1.5}
+.section-head{margin-bottom:1rem}
+.section-head h3{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:.2rem}
+.section-head p{font-size:11.5px;color:var(--text-3)}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:1.25rem}
+.meta-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem}
+.meta-item-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:.2rem}
+.meta-item-value{font-size:12px;font-weight:600;color:var(--text)}
+.progress-bar-wrap{background:var(--neutral);border-radius:4px;height:6px;overflow:hidden;margin-top:4px}
+.progress-bar{height:6px;border-radius:4px;background:var(--navy-mid)}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:.5rem}
+.rec-type-tag{font-size:10px;font-family:monospace;font-weight:600;padding:2px 7px;border-radius:5px;background:var(--neutral);color:var(--text-2);border:1px solid var(--border)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.footer{text-align:center;font-size:11px;color:var(--text-3);margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.text-muted{color:var(--text-3)}
+.fw-600{font-weight:600}
+hr.section-divider{border:none;border-top:1px solid var(--border);margin:1rem 0}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div>
+    <div class="header-eyebrow">Grupo Paraná · Contabilidade Corporativa</div>
+    <h1 class="header-title">Analisador <em>SPED</em> ECD/ECF</h1>
+    <div class="header-meta">Upload · Validação · Comparativo · Cruzamento · Consultor IA</div>
+  </div>
+  <div class="header-right">
+    <a href="./index.html" class="back-link">← Painel de Fornecedores</a>
+    <button class="theme-toggle" onclick="toggleTheme()" type="button">
+      <span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.8V5.2M12 18.8V21.2M21.2 12H18.8M5.2 12H2.8M18.5 5.5L16.8 7.2M7.2 16.8L5.5 18.5M18.5 18.5L16.8 16.8M7.2 7.2L5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+      <span class="theme-track"><span class="theme-thumb"></span></span>
+      <span class="theme-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M15.8 3.6a8.8 8.8 0 1 0 4.6 15.7A9.8 9.8 0 1 1 15.8 3.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+    </button>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Upload Zone -->
+  <div class="upload-grid">
+    <div class="upload-card" id="card-ecd-ant" ondragover="onDragOver(event,'ecd-ant')" ondragleave="onDragLeave('ecd-ant')" ondrop="onDrop(event,'ecd-ant')">
+      <input type="file" accept=".txt,.sped" onchange="onFileSelect(event,'ecd-ant')" id="input-ecd-ant">
+      <span class="upload-icon">📘</span>
+      <div class="upload-label">ECD Anterior</div>
+      <div class="upload-type type-ecd">ECD</div>
+      <div class="upload-hint" id="hint-ecd-ant">Arraste ou clique para selecionar o .txt da ECD do período anterior</div>
+      <div class="upload-filename" id="fname-ecd-ant"></div>
+      <button class="upload-remove" onclick="removeFile('ecd-ant')" type="button" title="Remover">✕</button>
+    </div>
+    <div class="upload-card" id="card-ecd-atu" ondragover="onDragOver(event,'ecd-atu')" ondragleave="onDragLeave('ecd-atu')" ondrop="onDrop(event,'ecd-atu')">
+      <input type="file" accept=".txt,.sped" onchange="onFileSelect(event,'ecd-atu')" id="input-ecd-atu">
+      <span class="upload-icon">📗</span>
+      <div class="upload-label">ECD Atual</div>
+      <div class="upload-type type-ecd">ECD</div>
+      <div class="upload-hint" id="hint-ecd-atu">Arraste ou clique para selecionar o .txt da ECD do período atual</div>
+      <div class="upload-filename" id="fname-ecd-atu"></div>
+      <button class="upload-remove" onclick="removeFile('ecd-atu')" type="button" title="Remover">✕</button>
+    </div>
+    <div class="upload-card" id="card-ecf-ant" ondragover="onDragOver(event,'ecf-ant')" ondragleave="onDragLeave('ecf-ant')" ondrop="onDrop(event,'ecf-ant')">
+      <input type="file" accept=".txt,.sped" onchange="onFileSelect(event,'ecf-ant')" id="input-ecf-ant">
+      <span class="upload-icon">📙</span>
+      <div class="upload-label">ECF Anterior</div>
+      <div class="upload-type type-ecf">ECF</div>
+      <div class="upload-hint" id="hint-ecf-ant">Arraste ou clique para selecionar o .txt da ECF do período anterior</div>
+      <div class="upload-filename" id="fname-ecf-ant"></div>
+      <button class="upload-remove" onclick="removeFile('ecf-ant')" type="button" title="Remover">✕</button>
+    </div>
+    <div class="upload-card" id="card-ecf-atu" ondragover="onDragOver(event,'ecf-atu')" ondragleave="onDragLeave('ecf-atu')" ondrop="onDrop(event,'ecf-atu')">
+      <input type="file" accept=".txt,.sped" onchange="onFileSelect(event,'ecf-atu')" id="input-ecf-atu">
+      <span class="upload-icon">📒</span>
+      <div class="upload-label">ECF Atual</div>
+      <div class="upload-type type-ecf">ECF</div>
+      <div class="upload-hint" id="hint-ecf-atu">Arraste ou clique para selecionar o .txt da ECF do período atual</div>
+      <div class="upload-filename" id="fname-ecf-atu"></div>
+      <button class="upload-remove" onclick="removeFile('ecf-atu')" type="button" title="Remover">✕</button>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <div class="files-status" id="filesStatus">
+      <span class="file-pill pill-empty">📘 ECD Anterior: aguardando</span>
+      <span class="file-pill pill-empty">📗 ECD Atual: aguardando</span>
+      <span class="file-pill pill-empty">📙 ECF Anterior: aguardando</span>
+      <span class="file-pill pill-empty">📒 ECF Atual: aguardando</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span id="analyzeMsg" class="text-muted" style="font-size:11px"></span>
+      <button class="btn btn-primary" id="btnAnalyze" onclick="runAnalysis()" disabled>
+        <span>🔍</span> Analisar Arquivos
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-nav" id="tabsNav" style="display:none">
+    <button class="tab-btn active" onclick="switchTab('resumo')">📊 Resumo</button>
+    <button class="tab-btn" onclick="switchTab('diagnostico')">🔴 Diagnóstico</button>
+    <button class="tab-btn" onclick="switchTab('comparativo')">📈 Comparativo</button>
+    <button class="tab-btn" onclick="switchTab('cruzamento')">🔀 Cruzamento ECD×ECF</button>
+    <button class="tab-btn" onclick="switchTab('consultor')">💬 Consultor IA</button>
+  </div>
+
+  <!-- Resumo -->
+  <div class="tab-pane active" id="tab-resumo">
+    <div id="resumo-content">
+      <div class="empty-state">
+        <span class="empty-state-icon">📂</span>
+        <h3>Nenhum arquivo carregado</h3>
+        <p>Faça upload de pelo menos um arquivo ECD ou ECF acima<br>e clique em <strong>Analisar Arquivos</strong> para começar.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diagnóstico -->
+  <div class="tab-pane" id="tab-diagnostico">
+    <div id="diag-content">
+      <div class="empty-state">
+        <span class="empty-state-icon">🔍</span>
+        <h3>Aguardando análise</h3>
+        <p>Carregue os arquivos e execute a análise para ver os diagnósticos.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparativo -->
+  <div class="tab-pane" id="tab-comparativo">
+    <div id="comp-content">
+      <div class="empty-state">
+        <span class="empty-state-icon">📈</span>
+        <h3>Carregue o par de arquivos</h3>
+        <p>Para o comparativo, carregue ECD Anterior + ECD Atual e/ou ECF Anterior + ECF Atual.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cruzamento -->
+  <div class="tab-pane" id="tab-cruzamento">
+    <div id="crz-content">
+      <div class="empty-state">
+        <span class="empty-state-icon">🔀</span>
+        <h3>Cruzamento ECD × ECF</h3>
+        <p>Carregue a ECD e a ECF do mesmo período para iniciar o cruzamento.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Consultor IA -->
+  <div class="tab-pane" id="tab-consultor">
+    <div class="section-head">
+      <h3>Consultor Especialista ECD/ECF</h3>
+      <p>Descreva seu erro, advertência ou dúvida. O consultor analisa o contexto dos arquivos carregados.</p>
+    </div>
+    <div class="chat-area">
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg chat-msg-bot">
+          <strong>Especialista SPED</strong><br>
+          Olá! Sou o consultor especialista em ECD e ECF. Você pode me enviar:<br><br>
+          • Mensagens de erro do PVA (copie o texto exato)<br>
+          • Códigos de advertência/erro (ex: <code>ECD-0053</code>)<br>
+          • Dúvidas sobre registros, blocos ou validações<br>
+          • Descrição de divergências entre saldos<br><br>
+          Com os arquivos carregados, analisarei no contexto dos seus dados.
+        </div>
+      </div>
+      <div class="chat-typing" id="chatTyping"><div class="dot-flashing"></div> Analisando...</div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chatInput" rows="2" placeholder="Digite seu erro, dúvida ou código do PVA..." onkeydown="chatKeyDown(event)"></textarea>
+        <button class="chat-send" onclick="sendChat()">Enviar ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    Grupo Paraná · Analisador SPED ECD/ECF &nbsp;|&nbsp; Processamento 100% local — nenhum arquivo é enviado a servidores externos
+  </footer>
+</main>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+const files = { 'ecd-ant': null, 'ecd-atu': null, 'ecf-ant': null, 'ecf-atu': null };
+const parsed = { 'ecd-ant': null, 'ecd-atu': null, 'ecf-ant': null, 'ecf-atu': null };
+let analysisResults = null;
+let activeTab = 'resumo';
+
+// ─── Theme ──────────────────────────────────────────────────────────────────
+function initTheme() {
+  const t = localStorage.getItem('gp_theme') || 'light';
+  document.body.setAttribute('data-theme', t);
+}
+function toggleTheme() {
+  const cur = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', next);
+  localStorage.setItem('gp_theme', next);
+}
+
+// ─── File Upload ─────────────────────────────────────────────────────────────
+function onDragOver(e, key) {
+  e.preventDefault();
+  document.getElementById('card-' + key).classList.add('drag-over');
+}
+function onDragLeave(key) {
+  document.getElementById('card-' + key).classList.remove('drag-over');
+}
+function onDrop(e, key) {
+  e.preventDefault();
+  onDragLeave(key);
+  const file = e.dataTransfer.files[0];
+  if (file) loadFile(file, key);
+}
+function onFileSelect(e, key) {
+  const file = e.target.files[0];
+  if (file) loadFile(file, key);
+}
+function loadFile(file, key) {
+  files[key] = file;
+  const isEcf = key.startsWith('ecf');
+  const card = document.getElementById('card-' + key);
+  card.classList.remove('drag-over');
+  card.classList.toggle('loaded', !isEcf);
+  card.classList.toggle('loaded-ecf', isEcf);
+  const fnEl = document.getElementById('fname-' + key);
+  fnEl.textContent = '✓ ' + file.name;
+  fnEl.className = 'upload-filename' + (isEcf ? ' upload-ecf-filename' : '');
+  document.getElementById('hint-' + key).style.display = 'none';
+  updateStatus();
+}
+function removeFile(key) {
+  files[key] = null;
+  parsed[key] = null;
+  const card = document.getElementById('card-' + key);
+  card.classList.remove('loaded', 'loaded-ecf');
+  document.getElementById('fname-' + key).textContent = '';
+  document.getElementById('hint-' + key).style.display = '';
+  const inp = document.getElementById('input-' + key);
+  inp.value = '';
+  updateStatus();
+  if (analysisResults) runAnalysis();
+}
+function updateStatus() {
+  const labels = {
+    'ecd-ant': '📘 ECD Anterior',
+    'ecd-atu': '📗 ECD Atual',
+    'ecf-ant': '📙 ECF Anterior',
+    'ecf-atu': '📒 ECF Atual'
+  };
+  let html = '';
+  let anyLoaded = false;
+  for (const [key, label] of Object.entries(labels)) {
+    if (files[key]) {
+      const isEcf = key.startsWith('ecf');
+      html += `<span class="file-pill ${isEcf ? 'pill-ok-ecf' : 'pill-ok'}">${label}: ${escH(files[key].name.slice(0, 22))}${files[key].name.length > 22 ? '…' : ''}</span>`;
+      anyLoaded = true;
+    } else {
+      html += `<span class="file-pill pill-empty">${label}: aguardando</span>`;
+    }
+  }
+  document.getElementById('filesStatus').innerHTML = html;
+  document.getElementById('btnAnalyze').disabled = !anyLoaded;
+  document.getElementById('analyzeMsg').textContent = anyLoaded ? '' : 'Carregue pelo menos 1 arquivo';
+}
+
+// ─── SPED Parser ─────────────────────────────────────────────────────────────
+function parseSPED(text) {
+  const lines = text.split(/\r?\n/);
+  const records = [];
+  const byType = {};
+  const byBlock = {};
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || !line.startsWith('|')) continue;
+    const parts = line.split('|');
+    if (parts.length < 3) continue;
+    const type = (parts[1] || '').trim().toUpperCase();
+    if (!type) continue;
+    const fields = parts.slice(2, parts[parts.length - 1] === '' ? parts.length - 1 : parts.length);
+    const block = type.charAt(0);
+    const rec = { type, fields, raw: line };
+    records.push(rec);
+    if (!byType[type]) byType[type] = [];
+    byType[type].push(rec);
+    if (!byBlock[block]) byBlock[block] = [];
+    byBlock[block].push(rec);
+  }
+
+  const meta = extractMeta(byType);
+  const fileType = detectFileType(byBlock, meta);
+
+  return { records, byType, byBlock, meta, fileType, totalLines: lines.length };
+}
+
+function detectFileType(byBlock, meta) {
+  // ECF has blocks like M, N, P (LALUR, IRPJ, SIMPLES)
+  if (byBlock['M'] || byBlock['N'] || byBlock['T'] || byBlock['U']) return 'ECF';
+  // ECD has block I (diário)
+  if (byBlock['I'] || byBlock['J']) return 'ECD';
+  // Check 0000 field
+  if (meta && meta.raw0000) {
+    const f0 = meta.raw0000.fields;
+    for (const f of f0) {
+      if (f === 'LECD') return 'ECD';
+      if (f === 'LECF') return 'ECF';
+    }
+  }
+  return 'DESCONHECIDO';
+}
+
+function extractMeta(byType) {
+  const rec0 = (byType['0000'] || [])[0];
+  if (!rec0) return { cnpj: '', nome: '', dtIni: '', dtFin: '', raw0000: null };
+
+  const fields = rec0.fields;
+  let cnpj = '', nome = '', dtIni = '', dtFin = '';
+
+  for (let i = 0; i < fields.length; i++) {
+    const f = (fields[i] || '').trim();
+    if (/^\d{2}\.?\d{3}\.?\d{3}\/\d{4}-\d{2}$/.test(f) || /^\d{14}$/.test(f)) {
+      if (!cnpj) cnpj = formatCNPJ(f.replace(/\D/g, ''));
+    } else if (/^\d{8}$/.test(f)) {
+      const d = f.slice(0, 2), m = f.slice(2, 4), y = f.slice(4, 8);
+      const parsed = new Date(y, m - 1, d);
+      if (!isNaN(parsed)) {
+        if (!dtIni) dtIni = `${d}/${m}/${y}`;
+        else if (!dtFin) dtFin = `${d}/${m}/${y}`;
+      }
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) {
+      if (!dtIni) dtIni = f;
+      else if (!dtFin) dtFin = f;
+    } else if (!nome && f.length > 4 && isNaN(f) && f !== 'LECD' && f !== 'LECF' && f !== 'G' && f !== 'R' && !/^[A-Z]{2}$/.test(f) && i >= 3) {
+      nome = f;
+    }
+  }
+  return { cnpj, nome, dtIni, dtFin, raw0000: rec0 };
+}
+
+function formatCNPJ(digits) {
+  if (digits.length !== 14) return digits;
+  return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`;
+}
+
+function fmtDate(s) {
+  if (!s) return '–';
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  if (/^\d{8}$/.test(s)) return `${s.slice(0,2)}/${s.slice(2,4)}/${s.slice(4,8)}`;
+  return s;
+}
+
+function parseVal(s) {
+  if (!s) return 0;
+  const clean = String(s).replace(/\./g, '').replace(',', '.').trim();
+  const v = parseFloat(clean);
+  return isNaN(v) ? 0 : v;
+}
+
+function fmtMoney(v) {
+  if (v === null || v === undefined) return '–';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+}
+
+function fmtNum(v) {
+  if (v === null || v === undefined) return '–';
+  return new Intl.NumberFormat('pt-BR').format(v);
+}
+
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Main Analysis ────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const btn = document.getElementById('btnAnalyze');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Processando...';
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    for (const key of Object.keys(files)) {
+      if (files[key] && !parsed[key]) {
+        const text = await readFileText(files[key]);
+        parsed[key] = parseSPED(text);
+        parsed[key]._key = key;
+      }
+      if (!files[key]) parsed[key] = null;
+    }
+
+    analysisResults = {
+      diagnostics: runDiagnostics(),
+      comparison: runComparison(),
+      crossRef: runCrossRef()
+    };
+
+    renderResumo();
+    renderDiagnostico();
+    renderComparativo();
+    renderCruzamento();
+
+    document.getElementById('tabsNav').style.display = 'flex';
+    switchTab(activeTab);
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao processar: ' + err.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>🔄</span> Reanalisar';
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file, 'ISO-8859-1');
+  });
+}
+
+// ─── Diagnostics ─────────────────────────────────────────────────────────────
+function runDiagnostics() {
+  const results = [];
+
+  for (const [key, p] of Object.entries(parsed)) {
+    if (!p) continue;
+    const label = keyLabel(key);
+    if (p.fileType === 'ECD') {
+      results.push(...diagECD(p, label));
+    } else if (p.fileType === 'ECF') {
+      results.push(...diagECF(p, label));
+    } else {
+      results.push({ level: 'warn', code: 'TIP001', file: label, msg: 'Tipo de arquivo não identificado', detail: 'Verifique se o arquivo é ECD ou ECF válido. O registro 0000 pode estar ausente ou incorreto.' });
+    }
+  }
+
+  return results;
+}
+
+function diagECD(p, label) {
+  const diags = [];
+  const bt = p.byType;
+  const bb = p.byBlock;
+
+  // ECD001 – 0000 ausente
+  if (!bt['0000'] || bt['0000'].length === 0) {
+    diags.push({ level: 'error', code: 'ECD001', file: label, msg: 'Registro 0000 ausente', detail: 'O registro de abertura obrigatório não foi encontrado. O arquivo pode estar corrompido ou não ser um arquivo SPED ECD válido.' });
+  }
+
+  // ECD002 – CNPJ inválido
+  if (p.meta.cnpj && !validCNPJ(p.meta.cnpj.replace(/\D/g, ''))) {
+    diags.push({ level: 'error', code: 'ECD002', file: label, msg: `CNPJ inválido: ${p.meta.cnpj}`, detail: 'O CNPJ informado no registro 0000 não passa na validação dos dígitos verificadores.' });
+  }
+
+  // ECD003 – Período
+  if (p.meta.dtIni && p.meta.dtFin) {
+    const ini = parseDateBR(p.meta.dtIni);
+    const fin = parseDateBR(p.meta.dtFin);
+    if (ini && fin && ini > fin) {
+      diags.push({ level: 'error', code: 'ECD003', file: label, msg: 'Data inicial maior que a data final no 0000', detail: `DT_INI: ${p.meta.dtIni} | DT_FIN: ${p.meta.dtFin}. Corrija as datas no sistema de origem e retifique o arquivo.` });
+    }
+  }
+
+  // ECD004 – Bloco I ausente
+  if (!bb['I'] || bb['I'].length === 0) {
+    diags.push({ level: 'error', code: 'ECD004', file: label, msg: 'Bloco I ausente (Diário Contábil)', detail: 'O bloco I é obrigatório na ECD. Contém o plano de contas (I010), saldos (I150) e lançamentos (I200/I250). Verifique a geração no ERP.' });
+  }
+
+  // ECD005 – Bloco J ausente
+  if (!bb['J'] || bb['J'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECD005', file: label, msg: 'Bloco J ausente (Demonstrações Contábeis)', detail: 'O bloco J contém o Balanço Patrimonial (J150) e a DRE (J100). Obrigatório para maioria das empresas. Verifique se a escrituração inclui as demonstrações.' });
+  }
+
+  // ECD006 – 9999 ausente
+  if (!bt['9999'] || bt['9999'].length === 0) {
+    diags.push({ level: 'error', code: 'ECD006', file: label, msg: 'Registro 9999 ausente (Encerramento do arquivo)', detail: 'Arquivo sem encerramento. Pode estar truncado. Não será aceito pelo PVA.' });
+  }
+
+  // ECD007 – I010 ausente
+  if (!bt['I010'] || bt['I010'].length === 0) {
+    diags.push({ level: 'error', code: 'ECD007', file: label, msg: 'I010 ausente — Plano de Contas não encontrado', detail: 'O registro I010 define o plano de contas analítico. Obrigatório. Verifique o cadastro de contas no ERP e a exportação SPED.' });
+  }
+
+  // ECD008 – I150 ausente
+  if (!bt['I150'] || bt['I150'].length === 0) {
+    diags.push({ level: 'error', code: 'ECD008', file: label, msg: 'I150 ausente — Balancete não encontrado', detail: 'O registro I150 contém os saldos das contas por período. Fundamental para validação e recuperação na ECF.' });
+  }
+
+  // ECD009 – Contagem 9900
+  if (bt['9900']) {
+    for (const r9 of bt['9900']) {
+      const tipo = (r9.fields[0] || '').toUpperCase();
+      const qtd9900 = parseInt(r9.fields[1] || '0', 10);
+      const qtdReal = (bt[tipo] || []).length;
+      if (tipo && qtd9900 !== qtdReal) {
+        diags.push({ level: 'error', code: 'ECD009', file: label, msg: `Contagem divergente no 9900: ${tipo}`, detail: `9900 informa ${qtd9900} registros de ${tipo}, mas foram encontrados ${qtdReal}. Possível arquivo truncado ou geração incorreta.` });
+      }
+    }
+  }
+
+  // ECD010 – I010 contas sem tipo
+  if (bt['I010']) {
+    const semTipo = bt['I010'].filter(r => !r.fields[3] && !r.fields[2]).length;
+    if (semTipo > 0) {
+      diags.push({ level: 'warn', code: 'ECD010', file: label, msg: `${semTipo} contas no I010 sem indicador sintética/analítica`, detail: 'Contas sem campo IND_CTA preenchido. O PVA pode rejeitar. Verifique o cadastro de contas no ERP.' });
+    }
+  }
+
+  // ECD011 – Plano referencial I012
+  if (!bt['I012'] || bt['I012'].length === 0) {
+    const hasI010 = bt['I010'] && bt['I010'].length > 0;
+    if (hasI010) {
+      diags.push({ level: 'warn', code: 'ECD011', file: label, msg: 'I012 ausente — Mapeamento referencial não encontrado', detail: 'O I012 mapeia as contas do plano local para o Plano Referencial da RFB. Ausente pode causar erro na recuperação da ECD na ECF e advertências no PVA.' });
+    }
+  }
+
+  // ECD012 – J100/J150 sem registros com saldo
+  if (bt['J100'] && bt['J100'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECD012', file: label, msg: 'J100 sem registros — DRE possivelmente vazia', detail: 'Verifique se as demonstrações contábeis foram geradas corretamente no ERP.' });
+  }
+
+  // ECD013 – I200 ausente (sem lançamentos)
+  if (!bt['I200'] || bt['I200'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECD013', file: label, msg: 'I200 ausente — Nenhum lançamento contábil encontrado', detail: 'O I200 registra os artigos do diário (cabeçalho dos lançamentos). Ausente indica que não há lançamentos ou que a geração está incompleta.' });
+  }
+
+  if (diags.length === 0) {
+    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado', detail: 'A estrutura básica do arquivo está conforme. Recomenda-se validação completa pelo PVA da RFB.' });
+  }
+
+  return diags;
+}
+
+function diagECF(p, label) {
+  const diags = [];
+  const bt = p.byType;
+  const bb = p.byBlock;
+
+  // ECF001 – 0000 ausente
+  if (!bt['0000'] || bt['0000'].length === 0) {
+    diags.push({ level: 'error', code: 'ECF001', file: label, msg: 'Registro 0000 ausente', detail: 'Registro de abertura não encontrado. O arquivo não é uma ECF válida.' });
+  }
+
+  // ECF002 – CNPJ
+  if (p.meta.cnpj && !validCNPJ(p.meta.cnpj.replace(/\D/g, ''))) {
+    diags.push({ level: 'error', code: 'ECF002', file: label, msg: `CNPJ inválido: ${p.meta.cnpj}`, detail: 'CNPJ do registro 0000 não válido. Corrija no sistema de origem.' });
+  }
+
+  // ECF003 – Bloco M (Lalur)
+  if (!bb['M'] || bb['M'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECF003', file: label, msg: 'Bloco M ausente (Lalur/Lacs)', detail: 'O Bloco M contém o Livro de Apuração do Lucro Real (Lalur) e do Lucro Ajustado (Lacs). Obrigatório para empresas Lucro Real.' });
+  }
+
+  // ECF004 – Bloco N (IRPJ/CSLL)
+  if (!bb['N'] || bb['N'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECF004', file: label, msg: 'Bloco N ausente (Cálculo IRPJ/CSLL)', detail: 'Bloco N ausente. Contém N620 (IRPJ) e N630 (CSLL). Verifique o regime tributário da empresa.' });
+  }
+
+  // ECF005 – M300 (Lucro líquido base do Lalur)
+  if (bb['M'] && !bt['M300'] && !bt['M350']) {
+    diags.push({ level: 'warn', code: 'ECF005', file: label, msg: 'M300/M350 ausente — Lucro líquido do Lalur não encontrado', detail: 'M300 e M350 registram o lucro/prejuízo líquido antes das adições e exclusões. Fundamentais para consistência do IRPJ/CSLL.' });
+  }
+
+  // ECF006 – N620
+  if (bb['N'] && !bt['N620']) {
+    diags.push({ level: 'warn', code: 'ECF006', file: label, msg: 'N620 ausente — Cálculo de IRPJ não encontrado', detail: 'N620 é onde o IRPJ é calculado. Ausente pode indicar empresa isenta, imune, ou problema na geração.' });
+  }
+
+  // ECF007 – N630
+  if (bb['N'] && !bt['N630']) {
+    diags.push({ level: 'warn', code: 'ECF007', file: label, msg: 'N630 ausente — Cálculo de CSLL não encontrado', detail: 'N630 registra o cálculo da CSLL. Verifique se a empresa é obrigada ao recolhimento.' });
+  }
+
+  // ECF008 – Bloco J (DRE recuperada)
+  if (!bb['J'] || bb['J'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECF008', file: label, msg: 'Bloco J ausente — DRE não recuperada da ECD', detail: 'O Bloco J da ECF deve ser recuperado da ECD. Ausente indica falha na recuperação ou empresa não obrigada à ECD.' });
+  }
+
+  // ECF009 – Bloco K (Balanço)
+  if (!bb['K'] || bb['K'].length === 0) {
+    diags.push({ level: 'warn', code: 'ECF009', file: label, msg: 'Bloco K ausente — Balanço não recuperado da ECD', detail: 'O Bloco K contém o Balanço Patrimonial recuperado da ECD. Verifique a recuperação da ECD na ECF.' });
+  }
+
+  // ECF010 – 9999 ausente
+  if (!bt['9999'] || bt['9999'].length === 0) {
+    diags.push({ level: 'error', code: 'ECF010', file: label, msg: 'Registro 9999 ausente', detail: 'Arquivo sem encerramento. Pode estar truncado.' });
+  }
+
+  // ECF011 – X292 (participações) informativo
+  if (!bt['X292'] && !bt['X300']) {
+    diags.push({ level: 'info', code: 'ECF011', file: label, msg: 'X292/X300 não encontrado — Participações societárias', detail: 'Se a empresa possui participações em outras empresas, o Bloco X deve ser preenchido. Verifique se aplicável.' });
+  }
+
+  if (diags.length === 0) {
+    diags.push({ level: 'ok', code: '–', file: label, msg: 'Nenhum erro crítico detectado', detail: 'A estrutura básica da ECF está conforme. Recomenda-se validação completa pelo PVA da RFB.' });
+  }
+
+  return diags;
+}
+
+// ─── Comparison ───────────────────────────────────────────────────────────────
+function runComparison() {
+  const results = { ecd: null, ecf: null };
+
+  if (parsed['ecd-ant'] && parsed['ecd-atu']) {
+    results.ecd = compareFiles(parsed['ecd-ant'], parsed['ecd-atu'], 'ECD');
+  }
+  if (parsed['ecf-ant'] && parsed['ecf-atu']) {
+    results.ecf = compareFiles(parsed['ecf-ant'], parsed['ecf-atu'], 'ECF');
+  }
+
+  return results;
+}
+
+function compareFiles(ant, atu, tipo) {
+  const result = {
+    tipo,
+    metaAnt: ant.meta,
+    metaAtu: atu.meta,
+    blocksDiff: [],
+    accountsDiff: [],
+    summary: []
+  };
+
+  // Block comparison
+  const allBlocks = new Set([...Object.keys(ant.byBlock), ...Object.keys(atu.byBlock)]);
+  for (const b of Array.from(allBlocks).sort()) {
+    const cntAnt = (ant.byBlock[b] || []).length;
+    const cntAtu = (atu.byBlock[b] || []).length;
+    if (cntAnt !== cntAtu) {
+      result.blocksDiff.push({ block: b, ant: cntAnt, atu: cntAtu, delta: cntAtu - cntAnt });
+    }
+  }
+
+  // Account saldo comparison (I150 for ECD)
+  if (tipo === 'ECD') {
+    const balAnt = extractI150Balances(ant);
+    const balAtu = extractI150Balances(atu);
+    const allAccs = new Set([...Object.keys(balAnt), ...Object.keys(balAtu)]);
+
+    for (const acc of Array.from(allAccs).sort()) {
+      const vAnt = balAnt[acc] || 0;
+      const vAtu = balAtu[acc] || 0;
+      if (Math.abs(vAtu - vAnt) > 0.01) {
+        const pct = vAnt !== 0 ? ((vAtu - vAnt) / Math.abs(vAnt)) * 100 : null;
+        result.accountsDiff.push({ acc, vAnt, vAtu, delta: vAtu - vAnt, pct, isNew: !balAnt[acc], isRemoved: !balAtu[acc] });
+      }
+    }
+    result.accountsDiff.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  }
+
+  // Summary
+  const totalAnt = Object.values(ant.byBlock).reduce((s, r) => s + r.length, 0);
+  const totalAtu = Object.values(atu.byBlock).reduce((s, r) => s + r.length, 0);
+  result.summary = [
+    { label: 'Total de registros', ant: totalAnt, atu: totalAtu },
+    { label: 'Tipos de registro', ant: Object.keys(ant.byType).length, atu: Object.keys(atu.byType).length },
+    { label: 'Blocos presentes', ant: Object.keys(ant.byBlock).length, atu: Object.keys(atu.byBlock).length },
+  ];
+
+  if (tipo === 'ECD') {
+    const i150Ant = (ant.byType['I150'] || []).length;
+    const i150Atu = (atu.byType['I150'] || []).length;
+    result.summary.push({ label: 'Contas no balancete (I150)', ant: i150Ant, atu: i150Atu });
+  }
+
+  return result;
+}
+
+function extractI150Balances(p) {
+  const map = {};
+  for (const r of (p.byType['I150'] || [])) {
+    const cod = r.fields[0] || '';
+    if (!cod) continue;
+    // I150: COD_CTA | VL_SLD_INI | IND_DC_INI | ... | VL_SLD_FIN | IND_DC_FIN
+    // Try to find the final balance (fields[6] or [4] depending on version)
+    let val = 0;
+    let dc = '';
+    // Look for numeric field as final balance
+    for (let i = r.fields.length - 1; i >= 1; i--) {
+      const f = r.fields[i];
+      if (f === 'D' || f === 'C') { dc = f; continue; }
+      const v = parseVal(f);
+      if (v !== 0) { val = v; break; }
+    }
+    map[cod] = dc === 'C' ? -val : val;
+  }
+  return map;
+}
+
+// ─── Cross Reference ──────────────────────────────────────────────────────────
+function runCrossRef() {
+  const pairs = [
+    { ecd: parsed['ecd-ant'], ecf: parsed['ecf-ant'], label: 'Anterior' },
+    { ecd: parsed['ecd-atu'], ecf: parsed['ecf-atu'], label: 'Atual' }
+  ];
+
+  return pairs.filter(p => p.ecd && p.ecf).map(p => crossRefPair(p.ecd, p.ecf, p.label));
+}
+
+function crossRefPair(ecd, ecf, label) {
+  const issues = [];
+  const items = [];
+
+  // CRZ001 – CNPJ match
+  const cnpjEcd = (ecd.meta.cnpj || '').replace(/\D/g, '');
+  const cnpjEcf = (ecf.meta.cnpj || '').replace(/\D/g, '');
+  if (cnpjEcd && cnpjEcf) {
+    const match = cnpjEcd === cnpjEcf;
+    items.push({ check: 'CNPJ', ecd: ecd.meta.cnpj || '–', ecf: ecf.meta.cnpj || '–', ok: match });
+    if (!match) {
+      issues.push({ level: 'error', code: 'CRZ001', msg: 'CNPJ divergente entre ECD e ECF', detail: `ECD: ${ecd.meta.cnpj} | ECF: ${ecf.meta.cnpj}. Arquivos de empresas diferentes. Não é possível cruzar.` });
+    }
+  }
+
+  // CRZ002 – Período
+  if (ecd.meta.dtIni || ecf.meta.dtIni) {
+    const periodoEcd = `${ecd.meta.dtIni || '?'} a ${ecd.meta.dtFin || '?'}`;
+    const periodoEcf = `${ecf.meta.dtIni || '?'} a ${ecf.meta.dtFin || '?'}`;
+    const match = ecd.meta.dtIni === ecf.meta.dtIni && ecd.meta.dtFin === ecf.meta.dtFin;
+    items.push({ check: 'Período', ecd: periodoEcd, ecf: periodoEcf, ok: match });
+    if (!match) {
+      issues.push({ level: 'warn', code: 'CRZ002', msg: `Período divergente (${label})`, detail: `ECD: ${periodoEcd} | ECF: ${periodoEcf}. A ECF deve corresponder ao mesmo período da ECD.` });
+    }
+  }
+
+  // CRZ003 – Tipo de arquivo correto?
+  items.push({ check: 'Tipo ECD', ecd: ecd.fileType, ecf: '–', ok: ecd.fileType === 'ECD' });
+  items.push({ check: 'Tipo ECF', ecd: '–', ecf: ecf.fileType, ok: ecf.fileType === 'ECF' });
+
+  if (ecd.fileType !== 'ECD') {
+    issues.push({ level: 'error', code: 'CRZ003', msg: 'Arquivo identificado como ECD não é uma ECD válida', detail: 'Verifique se fez o upload correto dos arquivos.' });
+  }
+  if (ecf.fileType !== 'ECF') {
+    issues.push({ level: 'error', code: 'CRZ004', msg: 'Arquivo identificado como ECF não é uma ECF válida', detail: 'Verifique se fez o upload correto dos arquivos.' });
+  }
+
+  // CRZ004 – ECD tem bloco J (Balanço/DRE)?
+  const ecdHasJ = !!(ecd.byBlock['J'] && ecd.byBlock['J'].length > 0);
+  const ecfHasJ = !!(ecf.byBlock['J'] && ecf.byBlock['J'].length > 0);
+  const ecfHasK = !!(ecf.byBlock['K'] && ecf.byBlock['K'].length > 0);
+  items.push({ check: 'ECD tem Bloco J (Dem.Contábeis)', ecd: ecdHasJ ? 'Sim' : 'Não', ecf: '–', ok: ecdHasJ });
+  items.push({ check: 'ECF recuperou Bloco J (DRE)', ecd: '–', ecf: ecfHasJ ? 'Sim' : 'Não', ok: ecfHasJ });
+  items.push({ check: 'ECF recuperou Bloco K (Balanço)', ecd: '–', ecf: ecfHasK ? 'Sim' : 'Não', ok: ecfHasK });
+
+  if (!ecfHasJ && ecdHasJ) {
+    issues.push({ level: 'warn', code: 'CRZ005', msg: `ECF (${label}): Bloco J não recuperado da ECD`, detail: 'A ECD possui o Bloco J, mas a ECF não apresenta o Bloco J recuperado. Refaça a recuperação da ECD na ECF pelo PVA.' });
+  }
+  if (!ecfHasK && ecdHasJ) {
+    issues.push({ level: 'warn', code: 'CRZ006', msg: `ECF (${label}): Bloco K não recuperado da ECD`, detail: 'O Balanço Patrimonial (Bloco K) deve ser recuperado da ECD. Execute a importação da ECD na ECF.' });
+  }
+
+  // CRZ005 – Lalur presente na ECF?
+  const ecfHasM = !!(ecf.byBlock['M'] && ecf.byBlock['M'].length > 0);
+  items.push({ check: 'ECF tem Bloco M (Lalur/Lacs)', ecd: '–', ecf: ecfHasM ? 'Sim' : 'Não', ok: ecfHasM });
+
+  if (issues.length === 0) {
+    issues.push({ level: 'ok', code: '–', msg: 'Cruzamento sem inconsistências identificadas', detail: 'CNPJ e período conferem. Estrutura de blocos básica está presente.' });
+  }
+
+  return { label, issues, items };
+}
+
+// ─── Render Resumo ────────────────────────────────────────────────────────────
+function renderResumo() {
+  let html = '';
+
+  for (const [key, p] of Object.entries(parsed)) {
+    if (!p) continue;
+    const label = keyLabel(key);
+    const isEcf = key.startsWith('ecf');
+    const blocksSorted = Object.entries(p.byBlock).sort((a, b) => a[0].localeCompare(b[0]));
+    const totalRecs = p.records.length;
+    const accent = isEcf ? '#b87514' : '#1a4a8a';
+
+    html += `<div class="card" style="--accent:${accent}">
+      <div class="card-title">${isEcf ? '📙' : '📘'} ${escH(label)}</div>
+      <div class="meta-grid">
+        <div class="meta-item"><div class="meta-item-label">Empresa</div><div class="meta-item-value">${escH(p.meta.nome || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">CNPJ</div><div class="meta-item-value">${escH(p.meta.cnpj || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">Período Inicial</div><div class="meta-item-value">${escH(p.meta.dtIni || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">Período Final</div><div class="meta-item-value">${escH(p.meta.dtFin || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">Tipo Detectado</div><div class="meta-item-value"><span class="badge ${isEcf ? 'badge-warn' : 'badge-info'}">${escH(p.fileType)}</span></div></div>
+        <div class="meta-item"><div class="meta-item-label">Total de Registros</div><div class="meta-item-value">${fmtNum(totalRecs)}</div></div>
+      </div>
+      <div class="card-title" style="margin-top:.75rem">Blocos e Registros</div>
+      <div class="tag-list">
+        ${blocksSorted.map(([b, recs]) => {
+          const pct = Math.min(100, Math.round((recs.length / Math.max(totalRecs, 1)) * 100));
+          return `<span class="block-pill" title="${recs.length} registros no bloco ${b}">Bloco ${b}: ${fmtNum(recs.length)}</span>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:1rem">
+        <div class="card-title">Tipos de Registro</div>
+        <div class="tag-list">
+          ${Object.keys(p.byType).sort().map(t => `<span class="rec-type-tag" title="${p.byType[t].length}x">${escH(t)}</span>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (!html) {
+    html = `<div class="empty-state"><span class="empty-state-icon">📂</span><h3>Nenhum arquivo processado</h3><p>Carregue arquivos e execute a análise.</p></div>`;
+  }
+
+  document.getElementById('resumo-content').innerHTML = html;
+}
+
+// ─── Render Diagnóstico ───────────────────────────────────────────────────────
+function renderDiagnostico() {
+  const diags = analysisResults.diagnostics;
+  if (!diags || diags.length === 0) {
+    document.getElementById('diag-content').innerHTML = `<div class="empty-state"><span class="empty-state-icon">✅</span><h3>Sem diagnósticos</h3><p>Carregue arquivos para análise.</p></div>`;
+    return;
+  }
+
+  const erros = diags.filter(d => d.level === 'error');
+  const warns = diags.filter(d => d.level === 'warn');
+  const infos = diags.filter(d => d.level === 'info');
+  const oks = diags.filter(d => d.level === 'ok');
+
+  let html = `<div class="grid-4" style="margin-bottom:1.5rem">
+    <div class="kpi-mini" style="--accent:#c0392b"><div class="kpi-mini-label">Erros Críticos</div><div class="kpi-mini-value" style="color:var(--red)">${erros.length}</div><div class="kpi-mini-sub">Impedem transmissão</div></div>
+    <div class="kpi-mini" style="--accent:#b87514"><div class="kpi-mini-label">Advertências</div><div class="kpi-mini-value" style="color:var(--amber)">${warns.length}</div><div class="kpi-mini-sub">Atenção necessária</div></div>
+    <div class="kpi-mini" style="--accent:#1a4a8a"><div class="kpi-mini-label">Informativos</div><div class="kpi-mini-value" style="color:var(--blue)">${infos.length}</div><div class="kpi-mini-sub">Verificar aplicabilidade</div></div>
+    <div class="kpi-mini" style="--accent:#187a4b"><div class="kpi-mini-label">Checks OK</div><div class="kpi-mini-value" style="color:var(--green)">${oks.length}</div><div class="kpi-mini-sub">Sem problemas</div></div>
+  </div>`;
+
+  const grouped = {};
+  for (const d of diags) {
+    if (!grouped[d.file]) grouped[d.file] = [];
+    grouped[d.file].push(d);
+  }
+
+  for (const [file, items] of Object.entries(grouped)) {
+    html += `<div class="card"><div class="card-title">📄 ${escH(file)}</div><div class="diag-list">`;
+    for (const d of items) {
+      const cls = { error: 'diag-err', warn: 'diag-warn', info: 'diag-info', ok: 'diag-ok' }[d.level] || 'diag-info';
+      const icon = { error: '🔴', warn: '🟡', info: '🔵', ok: '✅' }[d.level] || 'ℹ️';
+      html += `<div class="diag-item ${cls}">
+        <div class="diag-icon">${icon}</div>
+        <div class="diag-body">
+          <strong><span class="diag-code">${escH(d.code)}</span>${escH(d.msg)}</strong>
+          <small>${escH(d.detail)}</small>
+        </div>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  document.getElementById('diag-content').innerHTML = html;
+}
+
+// ─── Render Comparativo ───────────────────────────────────────────────────────
+function renderComparativo() {
+  const comp = analysisResults.comparison;
+  let html = '';
+
+  function renderOneComp(c, tipo) {
+    let h = `<div class="card" style="--accent:${tipo === 'ECD' ? '#1a4a8a' : '#b87514'}">
+      <div class="card-title">${tipo === 'ECD' ? '📘' : '📙'} Comparativo ${tipo}: Anterior × Atual</div>
+      <div class="meta-grid">
+        <div class="meta-item"><div class="meta-item-label">Empresa (Anterior)</div><div class="meta-item-value">${escH(c.metaAnt.nome || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">CNPJ (Anterior)</div><div class="meta-item-value">${escH(c.metaAnt.cnpj || '–')}</div></div>
+        <div class="meta-item"><div class="meta-item-label">Período Anterior</div><div class="meta-item-value">${escH((c.metaAnt.dtIni || '?') + ' a ' + (c.metaAnt.dtFin || '?'))}</div></div>
+        <div class="meta-item"><div class="meta-item-label">Período Atual</div><div class="meta-item-value">${escH((c.metaAtu.dtIni || '?') + ' a ' + (c.metaAtu.dtFin || '?'))}</div></div>
+      </div>`;
+
+    // Summary table
+    h += `<div class="card-title">Resumo Geral</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Indicador</th><th class="td-num">Anterior</th><th class="td-num">Atual</th><th class="td-num">Variação</th></tr></thead>
+        <tbody>
+          ${c.summary.map(s => {
+            const delta = s.atu - s.ant;
+            const cls = delta > 0 ? 'td-pos' : delta < 0 ? 'td-neg' : 'td-neutral';
+            const sign = delta > 0 ? '+' : '';
+            return `<tr><td>${escH(s.label)}</td><td class="td-num">${fmtNum(s.ant)}</td><td class="td-num">${fmtNum(s.atu)}</td><td class="td-num ${cls}">${sign}${fmtNum(delta)}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table></div>`;
+
+    // Block diffs
+    if (c.blocksDiff.length > 0) {
+      h += `<hr class="section-divider"><div class="card-title">Blocos com variação de registros</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Bloco</th><th class="td-num">Anterior</th><th class="td-num">Atual</th><th class="td-num">Delta</th></tr></thead>
+          <tbody>
+            ${c.blocksDiff.map(d => {
+              const cls = d.delta > 0 ? 'td-pos' : 'td-neg';
+              return `<tr><td><span class="block-pill">Bloco ${escH(d.block)}</span></td><td class="td-num">${fmtNum(d.ant)}</td><td class="td-num">${fmtNum(d.atu)}</td><td class="td-num ${cls}">${d.delta > 0 ? '+' : ''}${fmtNum(d.delta)}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>`;
+    }
+
+    // Account diffs for ECD
+    if (c.accountsDiff && c.accountsDiff.length > 0) {
+      const top = c.accountsDiff.slice(0, 50);
+      h += `<hr class="section-divider"><div class="card-title">Variação de saldos — Top ${top.length} contas (I150)</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Conta</th><th class="td-num">Anterior</th><th class="td-num">Atual</th><th class="td-num">Delta (R$)</th><th class="td-num">Var %</th><th>Status</th></tr></thead>
+          <tbody>
+            ${top.map(a => {
+              const cls = a.delta > 0 ? 'td-pos' : 'td-neg';
+              const status = a.isNew ? '<span class="badge badge-ok">Nova</span>' : a.isRemoved ? '<span class="badge badge-err">Removida</span>' : '<span class="badge badge-warn">Alterada</span>';
+              const pctStr = a.pct !== null ? (a.pct > 0 ? '+' : '') + a.pct.toFixed(1) + '%' : '∞';
+              return `<tr><td style="font-family:monospace;font-size:11px">${escH(a.acc)}</td><td class="td-num">${fmtMoney(a.vAnt)}</td><td class="td-num">${fmtMoney(a.vAtu)}</td><td class="td-num ${cls}">${fmtMoney(a.delta)}</td><td class="td-num ${cls}">${pctStr}</td><td>${status}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>`;
+      if (c.accountsDiff.length > 50) {
+        h += `<div style="font-size:11px;color:var(--text-3);margin-top:.5rem">… e mais ${c.accountsDiff.length - 50} contas com variação</div>`;
+      }
+    }
+
+    h += `</div>`;
+    return h;
+  }
+
+  if (comp.ecd) html += renderOneComp(comp.ecd, 'ECD');
+  if (comp.ecf) html += renderOneComp(comp.ecf, 'ECF');
+
+  if (!html) {
+    html = `<div class="empty-state"><span class="empty-state-icon">📈</span><h3>Carregue o par de arquivos</h3><p>Para comparar, carregue ECD Anterior + ECD Atual e/ou ECF Anterior + ECF Atual.</p></div>`;
+  }
+
+  document.getElementById('comp-content').innerHTML = html;
+}
+
+// ─── Render Cruzamento ────────────────────────────────────────────────────────
+function renderCruzamento() {
+  const cross = analysisResults.crossRef;
+  let html = '';
+
+  for (const c of cross) {
+    html += `<div class="card" style="--accent:#534ab7">
+      <div class="card-title">🔀 Cruzamento ECD × ECF — ${escH(c.label)}</div>
+      <div class="table-wrap" style="margin-bottom:1rem">
+        <table>
+          <thead><tr><th>Verificação</th><th>ECD</th><th>ECF</th><th>Status</th></tr></thead>
+          <tbody>
+            ${c.items.map(i => `<tr>
+              <td style="font-weight:600;font-size:12px">${escH(i.check)}</td>
+              <td style="font-size:12px;font-family:${i.ecd !== '–' ? 'monospace' : 'inherit'}">${escH(i.ecd)}</td>
+              <td style="font-size:12px;font-family:${i.ecf !== '–' ? 'monospace' : 'inherit'}">${escH(i.ecf)}</td>
+              <td>${i.ok ? '<span class="badge badge-ok">✓ OK</span>' : '<span class="badge badge-err">✗ Divergente</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-title">Inconsistências Identificadas</div>
+      <div class="diag-list">
+        ${c.issues.map(i => {
+          const cls = { error: 'diag-err', warn: 'diag-warn', info: 'diag-info', ok: 'diag-ok' }[i.level] || 'diag-info';
+          const icon = { error: '🔴', warn: '🟡', info: '🔵', ok: '✅' }[i.level] || 'ℹ️';
+          return `<div class="diag-item ${cls}">
+            <div class="diag-icon">${icon}</div>
+            <div class="diag-body">
+              <strong><span class="diag-code">${escH(i.code)}</span>${escH(i.msg)}</strong>
+              <small>${escH(i.detail)}</small>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (!html) {
+    html = `<div class="empty-state"><span class="empty-state-icon">🔀</span><h3>Par ECD+ECF não encontrado</h3><p>Carregue a ECD e a ECF do mesmo período para iniciar o cruzamento.</p></div>`;
+  }
+
+  document.getElementById('crz-content').innerHTML = html;
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+function chatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendMsg(msg, 'user');
+  document.getElementById('chatTyping').style.display = 'flex';
+  setTimeout(() => {
+    const resp = generateResponse(msg);
+    document.getElementById('chatTyping').style.display = 'none';
+    appendMsg(resp, 'bot');
+  }, 600 + Math.random() * 400);
+}
+
+function appendMsg(html, who) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (who === 'user' ? 'chat-msg-user' : 'chat-msg-bot');
+  div.innerHTML = who === 'user' ? escH(html) : html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function generateResponse(query) {
+  const q = query.toLowerCase();
+  const ctx = buildContext();
+
+  // Pattern matching – erros comuns ECD/ECF
+  if (/\b(i012|mapeamento referencial|plano referencial|conta referencial)\b/.test(q)) {
+    return `<h4>📋 I012 — Mapeamento Referencial</h4>
+<strong>Diagnóstico:</strong><br>
+O registro I012 é responsável pelo mapeamento das contas do plano local para o Plano de Contas Referencial da RFB.<br><br>
+<strong>Possíveis causas:</strong><ul>
+<li>Conta analítica sem mapeamento no cadastro de contas do ERP</li>
+<li>Código referencial digitado incorretamente (diferente da tabela RFB)</li>
+<li>Conta nova criada sem vincular ao referencial</li>
+<li>Versão do plano referencial desatualizada no sistema</li></ul>
+<strong>Solução:</strong><ul>
+<li>No Protheus: <code>SIGACTL → Plano de Contas → aba Referencial</code></li>
+<li>Vincule cada conta analítica ao código referencial correspondente</li>
+<li>Verifique a tabela de plano referencial vigente no site da RFB</li>
+<li>Regere o arquivo ECD após correção</li></ul>
+<strong>Impacto:</strong> Advertência no PVA. Pode impedir a recuperação correta da ECD na ECF.<br>
+<strong>Base:</strong> Manual ECD — Registro I012, Regra I12-01.`;
+  }
+
+  if (/\b(i150|balancete|saldo)\b/.test(q)) {
+    return `<h4>📊 I150 — Balancete de Verificação</h4>
+<strong>Diagnóstico:</strong><br>
+O I150 registra os saldos inicial e final de cada conta por período de escrituração.<br><br>
+<strong>Problemas comuns:</strong><ul>
+<li><strong>I150 ausente:</strong> Verifique se o período de escrituração foi corretamente parametrizado no ERP</li>
+<li><strong>Saldo D/C incorreto:</strong> O indicador IND_DC deve refletir a natureza do saldo final</li>
+<li><strong>Conta com saldo final diferente do saldo inicial do período seguinte:</strong> Indica problema de abertura do exercício</li>
+<li><strong>Conta sintética com saldo:</strong> Apenas contas analíticas devem ter saldo no I150</li></ul>
+<strong>Validações necessárias:</strong><ul>
+<li>Compare o I150 com o balancete do sistema</li>
+<li>Verifique contas com saldo devedor em contas de natureza credora e vice-versa</li>
+<li>Total débitos = Total créditos (equação patrimonial)</li></ul>
+${ctx.ecdAtu ? `<strong>No seu arquivo ECD Atual:</strong> ${(parsed['ecd-atu'].byType['I150'] || []).length} registros I150 encontrados.` : ''}
+<strong>Base:</strong> Manual ECD — Registro I150, Regras I15-01 a I15-09.`;
+  }
+
+  if (/\b(m300|m350|lalur|lucro real|lucro l[ií]quido)\b/.test(q)) {
+    return `<h4>📐 M300/M350 — Lalur e Lacs</h4>
+<strong>Diagnóstico:</strong><br>
+M300 = Parte A do Lalur (Lucro Real) | M350 = Parte A do Lacs (CSLL — Lucro Ajustado)<br><br>
+<strong>Campos fundamentais:</strong><ul>
+<li><code>M300.VL_REC_LIQ</code> — Receita líquida (base comparativa com ECD)</li>
+<li><code>M300.VL_LUC_LIQ</code> — Lucro líquido antes da apuração do IRPJ</li>
+<li><code>M300.VL_IR_RECUP</code> — IRPJ a recuperar</li></ul>
+<strong>Possíveis causas de erro:</strong><ul>
+<li>Recuperação da ECD não realizada ou com falha</li>
+<li>Adições/exclusões do Lalur não parametrizadas no ERP</li>
+<li>Diferença entre o resultado contábil (ECD) e o fiscal (ECF)</li>
+<li>Prejuízos compensados incorretamente</li></ul>
+<strong>Solução no Protheus:</strong><ul>
+<li>Verifique a tabela <code>ED8</code> (adições e exclusões)</li>
+<li>Execute o cálculo do IRPJ: <code>SIGAFIS → SPED ECF → Apuração IRPJ</code></li>
+<li>Compare M300 com o LALUR impresso</li></ul>
+<strong>Base:</strong> Manual ECF — Bloco M, Registros M300/M350, Regras M30-01 a M30-15.`;
+  }
+
+  if (/\b(n620|n630|irpj|csll|c[aá]lculo)\b/.test(q)) {
+    return `<h4>💰 N620/N630 — Cálculo IRPJ e CSLL</h4>
+<strong>Diagnóstico:</strong><br>
+N620 = Cálculo IRPJ | N630 = Cálculo CSLL<br><br>
+<strong>Verificações obrigatórias:</strong><ul>
+<li>N620.VL_BC_IR = Base de cálculo do IRPJ (deve coincidir com M300 final)</li>
+<li>N620.VL_IR_DEVIDO = IRPJ calculado (alíquota 15% + adicional 10% s/ excedente)</li>
+<li>N630.VL_BC_CS = Base CSLL (alíquota 9% geral ou 15% para financeiras)</li>
+<li>Deduções de incentivos fiscais devem estar suportadas por documentação</li></ul>
+<strong>Divergências comuns:</strong><ul>
+<li>Base ECF diverge do DCTF — verifique compensações e antecipações</li>
+<li>IRPJ calculado difere do pago — checar DARF e REFIS/PERT</li>
+<li>Adição de despesas indedutíveis não refletida na base</li></ul>
+<strong>Base:</strong> Manual ECF — Bloco N, Registros N620/N630; RIR/1999, Art. 228; IN RFB 2.004/2021.`;
+  }
+
+  if (/\b(recupera[çc][aã]o|recuperar|importa[çc][aã]o|ecd.*ecf|ecf.*ecd)\b/.test(q)) {
+    return `<h4>🔄 Recuperação da ECD na ECF</h4>
+<strong>Diagnóstico:</strong><br>
+A recuperação importa os saldos e demonstrações da ECD para os Blocos J e K da ECF.<br><br>
+<strong>Pré-requisitos:</strong><ul>
+<li>ECD transmitida e com recibo de entrega</li>
+<li>Mesmos CNPJ e período na ECD e ECF</li>
+<li>Arquivo ECD validado sem erros críticos pelo PVA</li></ul>
+<strong>Procedimento no PVA ECF:</strong><ul>
+<li>Abra a ECF no PVA → menu <em>Importar → ECD</em></li>
+<li>Selecione o arquivo .sped ou o CNPJ/período transmitido</li>
+<li>Verifique o relatório de importação — erros são listados</li>
+<li>Confira Bloco J (DRE) e Bloco K (Balanço) após importação</li></ul>
+<strong>Erros frequentes:</strong><ul>
+<li><em>"Período da ECD não encontrado"</em> — Verifique se a ECD foi transmitida para o mesmo ano</li>
+<li><em>"Plano referencial incompleto"</em> — I012 com contas sem mapeamento</li>
+<li><em>"Saldo divergente"</em> — Verifique I150 da ECD antes de recuperar</li></ul>
+${ctx.both ? `<strong>Contexto dos arquivos carregados:</strong> ${buildCrossContextMsg()}` : ''}
+<strong>Base:</strong> Manual ECF — Seção de Recuperação da ECD; ADE Cofis 65/2013.`;
+  }
+
+  if (/\b(9900|contagem|registros.*diverge|diverge.*registros)\b/.test(q)) {
+    return `<h4>🔢 9900 — Contagem de Registros</h4>
+<strong>Diagnóstico:</strong><br>
+O registro 9900 informa a quantidade de cada tipo de registro no arquivo. O PVA valida se a contagem bate com o arquivo real.<br><br>
+<strong>Causa:</strong> Arquivo gerado com contagem incorreta, geralmente por falha no processo de exportação do ERP ou edição manual do arquivo.<br><br>
+<strong>Solução:</strong><ul>
+<li>Nunca edite manualmente o arquivo .txt do SPED</li>
+<li>Regere o arquivo pelo ERP ou pelo próprio PVA (Arquivo → Reescrever)</li>
+<li>No Protheus: execute novamente a rotina de geração do SPED e não interrompa o processo</li></ul>
+<strong>Base:</strong> Manual ECD/ECF — Registro 9900, Regra 9900-01.`;
+  }
+
+  if (/\b(j100|j150|dem.*cont[aá]beis|balan[çc]o|dre)\b/.test(q)) {
+    return `<h4>📑 J100/J150 — Demonstrações Contábeis na ECD</h4>
+<strong>J100</strong> = Demonstração do Resultado do Exercício (DRE)<br>
+<strong>J150</strong> = Balanço Patrimonial<br><br>
+<strong>Estrutura esperada:</strong><ul>
+<li>J005 → cabeçalho da demonstração</li>
+<li>J100 → linhas da DRE com saldo e indicador D/C</li>
+<li>J150 → linhas do Balanço com ativo/passivo</li>
+<li>J800 → complemento do Balanço</li></ul>
+<strong>Erros comuns:</strong><ul>
+<li>J150 com saldo do Ativo ≠ Passivo+PL — indica descasamento no fechamento</li>
+<li>DRE com resultado diferente do I150 — verifique contas de resultado no plano</li>
+<li>Demonstrações ausentes — verifique se o módulo de fechamento foi executado no ERP</li></ul>
+<strong>Base:</strong> Manual ECD — Bloco J, Registros J005/J100/J150.`;
+  }
+
+  if (/\b(protheus|totvs|ctbs|sigafis|sigactl)\b/.test(q)) {
+    return `<h4>⚙️ Protheus/TOTVS — Geração do SPED</h4>
+<strong>Pontos de parametrização:</strong><ul>
+<li><strong>Plano de Contas:</strong> <code>SIGACTL → Cadastros → Plano de Contas</code> — verificar campo Cta.Referencial</li>
+<li><strong>SPED ECD:</strong> <code>SIGACTL → SPED Contábil (CTBS010)</code></li>
+<li><strong>SPED ECF:</strong> <code>SIGAFIS → SPED ECF (FISA145)</code></li>
+<li><strong>Parâmetros ECD:</strong> <code>MV_ECDPART</code>, <code>MV_ECDANO</code>, <code>MV_ECDPATH</code></li>
+<li><strong>Lalur:</strong> Tabela <code>ED8</code> (adições/exclusões) e <code>EDB</code> (Lalur)</li></ul>
+<strong>Tabelas importantes:</strong><ul>
+<li><code>CT1</code> — Plano de contas</li>
+<li><code>CT2</code> — Saldos contábeis</li>
+<li><code>CT5</code> — Lançamentos contábeis</li>
+<li><code>ED8</code> — Adições e exclusões IRPJ/CSLL</li>
+<li><code>SFT</code> — Livros fiscais</li></ul>
+<strong>Checklist de geração:</strong><ol>
+<li>Verificar mapeamento referencial (CT1.CT1_CTAREF)</li>
+<li>Conferir parâmetro de período no CTBS010</li>
+<li>Executar consistência do plano antes de gerar</li>
+<li>Validar no PVA antes de transmitir</li></ol>`;
+  }
+
+  if (/\b(erro|advertência|advertencia|pva|valida[çc][aã]o|[0-9]{4,5})\b/.test(q)) {
+    // Generic error handler
+    return `<h4>🔍 Análise de Erro/Advertência</h4>
+<strong>Para um diagnóstico preciso, informe:</strong><ul>
+<li>O texto exato da mensagem do PVA</li>
+<li>O código numérico do erro (ex: ECD-0053, ECF-1234)</li>
+<li>O registro e campo onde ocorre</li>
+<li>Se é ECD ou ECF</li></ul>
+<strong>Estrutura de diagnóstico que fornecerei:</strong><ul>
+<li>Causa provável</li>
+<li>Impacto fiscal/contábil</li>
+<li>Passos para correção</li>
+<li>Validações necessárias</li>
+<li>Base legal/manual aplicável</li>
+<li>Aplicação no Protheus (quando cabível)</li></ul>
+${ctx.anyLoaded ? `<strong>Arquivos carregados para contexto:</strong><br>${ctx.summary}` : 'Carregue os arquivos SPED para análise contextual automatizada.'}`;
+  }
+
+  if (/\b(x292|x300|participa[çc][aã]o|participações)\b/.test(q)) {
+    return `<h4>🏢 X292/X300 — Participações Societárias</h4>
+<strong>X292</strong> = Participações em coligadas/controladas<br>
+<strong>X300</strong> = Participações de outras empresas na declarante<br><br>
+<strong>Obrigatoriedade:</strong> Para empresas que possuem participação em outras empresas ou que têm sócios pessoas jurídicas.<br><br>
+<strong>Erros comuns:</strong><ul>
+<li>CNPJ da participada inválido ou não cadastrado na RFB</li>
+<li>Percentual de participação não bate com o registrado na Junta Comercial</li>
+<li>Divergência entre o valor do investimento no Balanço e o informado no X292</li>
+<li>Método de avaliação (custo vs. equivalência patrimonial) inconsistente</li></ul>
+<strong>Solução:</strong> Confrontar com contrato social, Livro de Acionistas e CNPJ das participadas na base da RFB.<br>
+<strong>Base:</strong> Manual ECF — Bloco X, Registros X292/X300.`;
+  }
+
+  // Context-aware default response
+  const ctxMsg = ctx.anyLoaded
+    ? `<br><br><strong>Contexto dos seus arquivos:</strong><br>${ctx.summary}`
+    : '';
+
+  return `<h4>💬 Análise da sua consulta</h4>
+Recebi sua pergunta: <em>"${escH(query)}"</em><br><br>
+<strong>Para um diagnóstico preciso, posso ajudar com:</strong><ul>
+<li>Erros específicos do PVA — cole o texto exato da mensagem</li>
+<li>Registros e blocos — especifique qual (I150, M300, J100, etc.)</li>
+<li>Cruzamentos ECD×ECF — descreva o que está divergente</li>
+<li>Parametrização Protheus — informe o módulo ou rotina</li>
+<li>Lalur/Lacs — adições, exclusões, compensações de prejuízo</li></ul>
+<strong>Tópicos com diagnóstico automático:</strong>
+<code>I012</code> <code>I150</code> <code>M300</code> <code>N620</code> <code>J100</code> <code>J150</code> <code>9900</code> <code>Lalur</code> <code>recuperação</code> <code>Protheus</code> <code>X292</code>
+${ctxMsg}`;
+}
+
+function buildContext() {
+  const loaded = Object.entries(parsed).filter(([, p]) => p !== null);
+  const anyLoaded = loaded.length > 0;
+  const both = parsed['ecd-atu'] && parsed['ecf-atu'];
+  let summary = '';
+  if (anyLoaded) {
+    summary = loaded.map(([k, p]) => `${keyLabel(k)}: ${p.meta.nome || 'Sem nome'} | CNPJ ${p.meta.cnpj || '?'} | ${p.meta.dtIni || '?'} a ${p.meta.dtFin || '?'}`).join('<br>');
+  }
+  return { anyLoaded, both, summary };
+}
+
+function buildCrossContextMsg() {
+  const ecd = parsed['ecd-atu'];
+  const ecf = parsed['ecf-atu'];
+  if (!ecd || !ecf) return '';
+  const sameCnpj = (ecd.meta.cnpj || '').replace(/\D/g,'') === (ecf.meta.cnpj || '').replace(/\D/g,'');
+  const samePeriod = ecd.meta.dtIni === ecf.meta.dtIni;
+  return `CNPJ ${sameCnpj ? '✓ confere' : '✗ diverge'} | Período ${samePeriod ? '✓ confere' : '✗ diverge'}`;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function keyLabel(key) {
+  return { 'ecd-ant': 'ECD Anterior', 'ecd-atu': 'ECD Atual', 'ecf-ant': 'ECF Anterior', 'ecf-atu': 'ECF Atual' }[key] || key;
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(tabName(tab))) b.classList.add('active');
+  });
+}
+
+function tabName(tab) {
+  return { resumo: 'resumo', diagnostico: 'diagnóst', comparativo: 'comparativo', cruzamento: 'cruzamento', consultor: 'consultor' }[tab] || tab;
+}
+
+function parseDateBR(s) {
+  if (!s) return null;
+  const parts = s.split('/');
+  if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+  return null;
+}
+
+function validCNPJ(digits) {
+  if (!digits || digits.length !== 14) return false;
+  if (/^(\d)\1+$/.test(digits)) return false;
+  const calc = (len) => {
+    let sum = 0, pos = len - 7;
+    for (let i = len; i >= 1; i--) {
+      sum += parseInt(digits.charAt(len - i)) * pos--;
+      if (pos < 2) pos = 9;
+    }
+    return sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  };
+  return calc(12) === parseInt(digits.charAt(12)) && calc(13) === parseInt(digits.charAt(13));
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initTheme();
+updateStatus();
+</script>
+</body>
+</html>
